@@ -2,8 +2,8 @@ use crate::ui::camera_2d::Camera2D;
 use crate::ui::format_duration;
 use eframe::egui;
 use eframe::egui::{Rect, RichText};
+use gravity::simulator::Snapshot;
 use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot, SimulationWarning};
-use gravity::simulator::{Snapshot, World};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -146,7 +146,7 @@ impl GravityApp {
 }
 
 impl eframe::App for GravityApp {
-    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if let Ok(snapshot) = self.snapshot.read() {
             self.simulation = snapshot.clone();
         }
