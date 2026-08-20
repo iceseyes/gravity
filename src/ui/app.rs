@@ -1,14 +1,16 @@
+use crate::physics::SPEED_OF_LIGHT;
 use crate::simulator;
 use crate::simulator::World;
 use crate::ui::camera_2d::Camera2D;
 use eframe::egui;
 use eframe::egui::Rect;
+use num_traits::float::FloatCore;
 
 #[derive(Default)]
 pub struct GravityApp {
     world: World,
     camera: Camera2D,
-    speed: usize,
+    running: bool,
     reset_viewport: bool,
 }
 
@@ -19,15 +21,15 @@ impl GravityApp {
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
 
-        // let world = simulator::orbit();
+        let world = simulator::orbit();
         // let world = simulator::three_bodies_aligned();
-        let world = simulator::random(100);
+        // let world = simulator::random(1000);
         let camera = Camera2D::default();
 
         Self {
             world,
             camera,
-            speed: 1000,
+            running: true,
             reset_viewport: true,
         }
     }
@@ -84,14 +86,14 @@ impl GravityApp {
             painter.text(
                 egui::pos2(w, rect.bottom()),
                 egui::Align2::CENTER_BOTTOM,
-                format!("{:.2}m", x),
+                format!("{:.2e}m", x),
                 egui::FontId::monospace(12.0),
                 egui::Color32::WHITE,
             );
             painter.text(
                 egui::pos2(10.0, h),
                 egui::Align2::LEFT_CENTER,
-                format!("{:.2}m", y),
+                format!("{:.2e}m", y),
                 egui::FontId::monospace(12.0),
                 egui::Color32::WHITE,
             );
@@ -111,10 +113,11 @@ impl GravityApp {
             let (vx, vy, _) = p.velocity_direction();
             let radius = p.radius();
             let position = self.camera.point_to_screen(&rect, x, y, z);
+            let speed_line_length = radius + self.camera.length_to_world(30.0);
             let velocity = self.camera.point_to_screen(
                 &rect,
-                x + (2.0 * radius * vx * speed),
-                y + (2.0 * radius * vy * speed),
+                x + vx * speed_line_length,
+                y + vy * speed_line_length,
                 z,
             );
             let radius = self.camera.length_to_screen(p.radius());
@@ -123,26 +126,33 @@ impl GravityApp {
             painter.text(
                 position,
                 egui::Align2::CENTER_CENTER,
-                format!("{:.2}m/s", speed),
+                format!("{:.2e}kg", p.mass()),
                 egui::FontId::monospace(8.0),
-                egui::Color32::RED,
+                egui::Color32::DARK_GRAY,
             );
 
-            let direction = vec![position, velocity];
-            painter.line(
-                direction,
-                egui::Stroke::new(2.0, egui::Color32::from_rgba_premultiplied(128, 0, 0, 0)),
-            );
+            if p.speed().abs() > 0.001 {
+                let direction = vec![position, velocity];
+                painter.line(
+                    direction,
+                    egui::Stroke::new(2.0, egui::Color32::from_rgba_premultiplied(128, 0, 0, 0)),
+                );
+                painter.text(
+                    velocity,
+                    egui::Align2::CENTER_CENTER,
+                    format!("{:.2e}m/s", speed),
+                    egui::FontId::monospace(8.0),
+                    egui::Color32::RED,
+                );
+            }
         }
     }
 }
 
 impl eframe::App for GravityApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        if self.speed > 0 {
-            for _ in 0..self.speed {
-                self.world.update();
-            }
+        if self.running {
+            self.world.update();
         }
 
         egui::Panel::top("top_panel").show(ui, |ui| {
@@ -154,11 +164,11 @@ impl eframe::App for GravityApp {
                     self.camera.scale()
                 )));
 
-                if ui.add(egui::Button::new("Reset")).clicked() {
+                if ui.add(egui::Button::new("Fit View")).clicked() {
                     self.reset_viewport = true;
                 }
 
-                ui.add(egui::Slider::new(&mut self.speed, 0usize..=1000usize).text("ms/frame"));
+                ui.add(egui::Checkbox::new(&mut self.running, "Running"));
             });
         });
 

@@ -1,4 +1,5 @@
-use rand::random_range;
+use rand::{random, random_range};
+use std::f32::consts::PI;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
@@ -28,13 +29,18 @@ impl Body {
     }
 
     pub fn random() -> Self {
-        let mass = random_range(0.001..1e12);
-        let density = random_range(mass / 10.0..10.0 * mass);
-        let radius = mass / density;
+        const MIN_EXP_MASS: f32 = 1.0;
+        const MAX_EXP_MASS: f32 = 19.0;
+        const SPACE_RADIUS: f32 = 1e12;
+        const DENSITY: f32 = 1.0e3;
+
+        let exponent = random_range(MIN_EXP_MASS..=MAX_EXP_MASS);
+        let mass = 10.0_f32.powf(exponent);
+        let radius = (3.0 * mass / (4.0 * PI * DENSITY)).cbrt();
         Self {
-            x: random_range(0.0..100.0),
-            y: random_range(0.0..100.0),
-            z: random_range(0.0..100.0),
+            x: random_range(-SPACE_RADIUS..SPACE_RADIUS),
+            y: random_range(-SPACE_RADIUS..SPACE_RADIUS),
+            z: random_range(-SPACE_RADIUS..SPACE_RADIUS),
             velocity_x: 0.0,
             velocity_y: 0.0,
             velocity_z: 0.0,
