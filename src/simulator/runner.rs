@@ -6,7 +6,6 @@ pub struct Runner {
     world: World,
     time: f64,
     dt: f32,
-    running: bool,
 }
 
 impl Runner {
@@ -15,7 +14,6 @@ impl Runner {
             world,
             dt,
             time: 0.0,
-            running: false,
         }
     }
 
@@ -27,23 +25,9 @@ impl Runner {
         self.world.clone()
     }
 
-    pub fn is_running(&self) -> bool {
-        self.running
-    }
-
-    pub fn stop(&mut self) {
-        self.running = false;
-    }
-
-    pub fn start(&mut self) {
-        self.running = true;
-    }
-
     pub fn run_once(&mut self) {
-        if self.running {
-            self.step();
-            self.world.reset_viewport();
-        }
+        self.step();
+        self.world.reset_viewport();
     }
 
     pub fn step(&mut self) {

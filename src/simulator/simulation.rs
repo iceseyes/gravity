@@ -22,6 +22,7 @@ pub enum SimulationWarning {
 #[derive(Debug)]
 struct Simulation {
     runner: Runner,
+    running: bool,
     snapshot: Snapshot,
 }
 
@@ -30,27 +31,47 @@ impl Simulation {
 
     fn new(runner: Runner) -> Self {
         let snapshot = Arc::new(RwLock::new(SimulationSnapshot::new(&runner)));
-        Self { runner, snapshot }
+        Self {
+            runner,
+            running: true,
+            snapshot,
+        }
     }
 
     fn start(&mut self) {
-        self.runner.start();
+        self.running = true;
+        if let Ok(mut snapshot) = self.snapshot.write() {
+            snapshot.running = true;
+        }
+    }
+
+    fn pause(&mut self) {
+        self.running = false;
+        if let Ok(mut snapshot) = self.snapshot.write() {
+            snapshot.running = false;
+        }
+    }
+
+    fn is_running(&self) -> bool {
+        self.running
     }
 
     fn step(&mut self) {
-        self.runner.run_once();
+        if self.running {
+            self.runner.run_once();
 
-        if let Ok(mut snapshot) = self.snapshot.write() {
-            snapshot.copy_from(&self.runner);
-        } else {
-            println!("Failed to write snapshot");
+            if let Ok(mut snapshot) = self.snapshot.write() {
+                snapshot.copy_from(self);
+            } else {
+                println!("Failed to write snapshot");
+            }
         }
     }
 
     fn handle(&mut self, command: SimulationCommand) -> bool {
         match command {
             SimulationCommand::Restart => self.start(),
-            SimulationCommand::Pause => self.runner.stop(),
+            SimulationCommand::Pause => self.pause(),
             SimulationCommand::ResetWarning => {
                 if let Ok(mut snapshot) = self.snapshot.write() {
                     snapshot.warning = SimulationWarning::None;
@@ -77,16 +98,16 @@ impl SimulationSnapshot {
         Self {
             world: runner.world().clone(),
             time: runner.time(),
-            running: runner.is_running(),
+            running: true,
             samples_per_second: 0.0,
             warning: SimulationWarning::None,
         }
     }
 
-    fn copy_from(&mut self, runner: &Runner) {
-        self.world = runner.world();
-        self.time = runner.time();
-        self.running = runner.is_running();
+    fn copy_from(&mut self, simulation: &Simulation) {
+        self.world = simulation.runner.world();
+        self.time = simulation.runner.time();
+        self.running = simulation.is_running();
     }
 }
 
