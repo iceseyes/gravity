@@ -19,7 +19,7 @@ pub fn random(n_bodies: usize) -> (JoinHandle<()>, Snapshot) {
         world.add_body(Body::random());
     }
 
-    run(world, 60.0 * 60.0 * 24.0 * 365.0 * 1e1, 60)
+    run(world, 60.0 * 60.0 * 24.0 * 365.0 * 1e1, 120)
 }
 
 pub fn three_bodies_aligned() -> (JoinHandle<()>, Snapshot) {
@@ -50,5 +50,5 @@ pub fn orbit() -> (JoinHandle<()>, Snapshot) {
     planet.set_velocity(0.0, 258_293.0, 0.0);
     world.add_body(planet);
 
-    run(world, 0.001, 1000000000)
+    run(world, 0.001, 2_125_500)
 }

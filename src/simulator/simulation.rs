@@ -11,6 +11,8 @@ struct Simulation {
 }
 
 impl Simulation {
+    const FRAME_PER_SECOND: u32 = 60;
+
     fn new(runner: Runner) -> Self {
         let world = runner.world().clone();
         let snapshot = Arc::new(RwLock::new(world));
@@ -37,8 +39,9 @@ pub fn run(world: World, dt: f32, steps_per_sec: u32) -> (JoinHandle<()>, Snapsh
     let snapshot = simulation.snapshot.clone();
     simulation.start();
     let simulation_thread = spawn(move || {
-        let steps_per_frame = steps_per_sec / 60; // we support 60 fps
-        let frame_duration = Duration::from_micros(166666);
+        let steps_per_frame = steps_per_sec / Simulation::FRAME_PER_SECOND; // we support 60 fps
+        let frame_duration =
+            Duration::from_micros((1e6 / Simulation::FRAME_PER_SECOND as f32) as u64);
 
         let mut steps = 0u32;
         let mut steps_tot = 0u32;

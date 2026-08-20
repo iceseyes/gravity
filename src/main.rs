@@ -8,7 +8,7 @@ use ui::app::GravityApp;
 
 fn main() -> anyhow::Result<()> {
     let native_options = eframe::NativeOptions::default();
-    let (simulator, snapshot) = simulator::random(10000);
+    let (simulator, snapshot) = simulator::orbit();
 
     let ris = eframe::run_native(
         "Gravity Simulator",
