@@ -36,7 +36,7 @@ mod tests {
         let (ax, ay, az) = gravity_field(1.0, 10.0, 0.0, 0.0);
         assert_approx_eq(ax, 0.01);
         assert_approx_eq(ay, 0.0);
-        assert_approx_eq(ay, 0.0);
+        assert_approx_eq(az, 0.0);
 
         assert_eq!(G * ax, 6.674081e-13);
     }

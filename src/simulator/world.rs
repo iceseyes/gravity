@@ -1,13 +1,11 @@
 use crate::physics;
-use crate::physics::gravity;
 use crate::simulator::body::Body;
 
 pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct World {
     gravity_constant: f32,
-    dtime: f32,
     bodies: Vec<Body>,
     min_x: f32,
     max_x: f32,
@@ -16,7 +14,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(gravity_constant: f32, dtime: f32) -> Self {
+    pub fn new(gravity_constant: f32) -> Self {
         let min_x = f32::INFINITY;
         let max_x = f32::NEG_INFINITY;
         let min_y = f32::INFINITY;
@@ -24,7 +22,6 @@ impl World {
 
         Self {
             gravity_constant,
-            dtime,
             bodies: Vec::new(),
             min_x,
             max_x,
@@ -54,19 +51,34 @@ impl World {
     }
 
     pub fn width(&self) -> f32 {
-        let w = self.max_x - self.min_x;
-
-        if w.abs() > 1.0 { w } else { 1.0 }
+        if self.bodies.is_empty() {
+            0.0
+        } else {
+            let w = self.max_x - self.min_x;
+            if w.abs() > 1.0 { w } else { 1.0 }
+        }
     }
 
     pub fn height(&self) -> f32 {
-        let h = self.max_y - self.min_y;
+        if self.bodies.is_empty() {
+            0.0
+        } else {
+            let h = self.max_y - self.min_y;
 
-        if h.abs() > 1.0 { h } else { 1.0 }
+            if h.abs() > 1.0 { h } else { 1.0 }
+        }
+    }
+
+    pub fn gravity_constant(&self) -> f32 {
+        self.gravity_constant
     }
 
     pub fn bodies(&self) -> &[Body] {
         &self.bodies
+    }
+
+    pub fn mut_bodies(&mut self) -> &mut [Body] {
+        &mut self.bodies
     }
 
     pub fn reset_viewport(&mut self) {
@@ -85,43 +97,11 @@ impl World {
             );
         });
     }
-
-    pub fn update(&mut self) {
-        self.bodies = self
-            .bodies
-            .iter()
-            .enumerate()
-            .map(|(i, p1)| {
-                let (mut ax, mut ay, mut az) = (0.0, 0.0, 0.0);
-
-                self.bodies().iter().enumerate().for_each(|(index2, p2)| {
-                    if i != index2 {
-                        let (dx, dy, dz) = p2.distance_to(p1);
-                        let (ax_, ay_, az_) = gravity::gravity_field(p2.mass(), dx, dy, dz);
-                        ax += ax_;
-                        ay += ay_;
-                        az += az_;
-                    }
-                });
-
-                let mut p = p1.clone();
-                p.update_position(self.dtime);
-                p.accelerate(
-                    self.dtime,
-                    self.gravity_constant * ax,
-                    self.gravity_constant * ay,
-                    self.gravity_constant * az,
-                );
-
-                p
-            })
-            .collect();
-    }
 }
 
 impl Default for World {
     fn default() -> Self {
-        Self::new(physics::G, DEFAULT_DTIME)
+        Self::new(physics::G)
     }
 }
 
@@ -138,60 +118,43 @@ fn update_viewport(p: &Body, min_x: &mut f32, max_x: &mut f32, min_y: &mut f32, 
 mod tests {
     use super::*;
     use crate::physics::assert_approx_eq;
-    use crate::simulator::body::distance;
 
     #[test]
-    fn test_single_particle() {
-        let mut w = World::default();
-        w.add_body(Body::new(1.0, 1.0));
-        w.update();
+    fn test_world_size_without_bodies() {
+        let w = World::new(physics::G);
+        let (x, y) = w.origin();
 
-        let p = &w.bodies()[0];
-
-        assert_approx_eq(p.speed(), 0.0);
+        assert_eq!(x, 0.0);
+        assert_eq!(y, 0.0);
+        assert_eq!(w.width(), 0.0);
+        assert_eq!(w.height(), 0.0);
     }
 
     #[test]
-    fn test_two_particles_attract_each_other() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(1.0, 1.0);
-
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(10.0, 0.0, 0.0);
-
-        let mut w = World::default();
-        w.add_body(p1);
-        w.add_body(p2);
-
-        w.update();
-
-        let particles = w.bodies();
-
-        assert!(particles[0].speed() > 0.0);
-        assert!(particles[1].speed() > 0.0);
-
-        assert_approx_eq(particles[0].velocity_direction().0, 1.0);
-        assert_approx_eq(particles[0].velocity_direction().1, 0.0);
-        assert_approx_eq(particles[0].velocity_direction().2, 0.0);
-
-        assert_approx_eq(particles[1].velocity_direction().0, -1.0);
-        assert_approx_eq(particles[1].velocity_direction().1, 0.0);
-        assert_approx_eq(particles[1].velocity_direction().2, 0.0);
-    }
-
-    #[test]
-    fn test_singularity() {
-        let mut w = World::default();
+    fn test_world_size_upon_adding_bodies() {
+        let mut w = World::new(physics::G);
         w.add_body(Body::new(1.0, 1.0));
-        w.add_body(Body::new(1000.0, 10.0));
 
-        let (p1, p2) = (&w.bodies()[0], &w.bodies()[1]);
-        assert_approx_eq(distance(p1, p2), 0.0);
+        // il corpo si trova nel punto (0, 0) con raggio 1.0
+        let (x, y) = w.origin();
 
-        w.update();
-        let (p1, p2) = (&w.bodies()[0], &w.bodies()[1]);
-        assert_approx_eq(distance(p1, p2), 0.0);
-        assert_approx_eq(p1.speed(), 0.0);
-        assert_approx_eq(p2.speed(), 0.0);
+        assert_approx_eq(x, -1.0);
+        assert_approx_eq(y, -1.0);
+        assert_approx_eq(w.width(), 2.0);
+        assert_approx_eq(w.height(), 2.0);
+
+        let mut b1 = Body::new(1.0, 2.0);
+        b1.move_to(10.0, 10.0, 10.0);
+        w.add_body(b1);
+
+        // il secondo corpo si trova nel punto (10, 10) con raggio 2.0
+        let (x, y) = w.origin();
+
+        // l'origin non cambia, ma la larghezza e l'altezza aumentano perché
+        // variano da -1 (0 - 1) a 12 (10 + 2)
+        assert_approx_eq(x, -1.0);
+        assert_approx_eq(y, -1.0);
+        assert_approx_eq(w.width(), 13.0);
+        assert_approx_eq(w.height(), 13.0);
     }
 }

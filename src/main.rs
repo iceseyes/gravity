@@ -3,6 +3,7 @@ extern crate core;
 pub mod ui;
 
 use anyhow::Context;
+use gravity::simulator;
 use ui::app::GravityApp;
 
 fn main() -> anyhow::Result<()> {
@@ -10,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     eframe::run_native(
         "Gravity Simulator",
         native_options,
-        Box::new(|cc| Ok(Box::new(GravityApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(GravityApp::new(cc, simulator::orbit())))),
     )
     .context("Failed to run eframe")
 }

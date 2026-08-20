@@ -1,21 +1,22 @@
 pub mod body;
-mod runner;
+pub mod runner;
 pub mod world;
 
 use crate::physics;
 pub use crate::simulator::body::Body;
+use crate::simulator::runner::Runner;
 pub use crate::simulator::world::World;
 
-pub fn random(n_bodies: usize) -> World {
-    let mut world = World::new(physics::G, 60.0 * 60.0 * 24.0 * 365.0 * 1e1);
+pub fn random(n_bodies: usize) -> Runner {
+    let mut world = World::default();
     for _ in 0..n_bodies {
         world.add_body(Body::random());
     }
 
-    world
+    Runner::new(world, 60.0 * 60.0 * 24.0 * 365.0 * 1e1)
 }
 
-pub fn three_bodies_aligned() -> World {
+pub fn three_bodies_aligned() -> Runner {
     let mut world = World::default();
 
     let mut p = Body::new(1_000_000_000.0, 1.0);
@@ -28,11 +29,11 @@ pub fn three_bodies_aligned() -> World {
 
     world.add_body(Body::new(2_000_000_000.0, 2.0));
 
-    world
+    Runner::new(world, 1e-3)
 }
 
-pub fn orbit() -> World {
-    let mut world = World::new(physics::G, 60.0);
+pub fn orbit() -> Runner {
+    let mut world = World::new(physics::G);
 
     let mut star = Body::new(1.0e30, 9.7e8);
     star.move_to(0.0, 0.0, 0.0);
@@ -43,5 +44,5 @@ pub fn orbit() -> World {
     planet.set_velocity(0.0, 258_293.0, 0.0);
     world.add_body(planet);
 
-    world
+    Runner::new(world, 60.0)
 }
