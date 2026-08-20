@@ -1,5 +1,5 @@
-use crate::simulator::World;
 use eframe::emath::{Pos2, Rect, Vec2};
+use gravity::simulator::World;
 
 pub struct Camera2D {
     center: Pos2, // meters (world space)
@@ -87,9 +87,9 @@ impl Default for Camera2D {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::assert_approx_eq;
-    use crate::simulator::Body;
-    use crate::simulator::world::World;
+    use gravity::physics::assert_approx_eq;
+    use gravity::simulator::Body;
+    use gravity::simulator::world::World;
 
     fn viewport() -> Rect {
         Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1000.0, 500.0))

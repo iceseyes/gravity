@@ -1,5 +1,5 @@
 use crate::physics;
-use crate::physics::EPSILON;
+use crate::physics::gravity;
 use crate::simulator::body::Body;
 
 pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
@@ -97,16 +97,10 @@ impl World {
                 self.bodies().iter().enumerate().for_each(|(index2, p2)| {
                     if i != index2 {
                         let (dx, dy, dz) = p2.distance_to(p1);
-                        let distance_squared = dx * dx + dy * dy + dz * dz;
-
-                        if distance_squared > EPSILON {
-                            let distance = distance_squared.sqrt();
-                            let factor = p2.mass() / (distance_squared * distance);
-
-                            ax += dx * factor;
-                            ay += dy * factor;
-                            az += dz * factor;
-                        }
+                        let (ax_, ay_, az_) = gravity::gravity_field(p2.mass(), dx, dy, dz);
+                        ax += ax_;
+                        ay += ay_;
+                        az += az_;
                     }
                 });
 

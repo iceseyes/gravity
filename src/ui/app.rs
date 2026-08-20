@@ -1,8 +1,8 @@
-use crate::simulator;
-use crate::simulator::World;
 use crate::ui::camera_2d::Camera2D;
 use eframe::egui;
 use eframe::egui::Rect;
+use gravity::simulator;
+use gravity::simulator::World;
 
 #[derive(Default)]
 pub struct GravityApp {

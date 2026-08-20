@@ -1,7 +1,5 @@
 extern crate core;
 
-pub mod physics;
-pub mod simulator;
 pub mod ui;
 
 use anyhow::Context;
