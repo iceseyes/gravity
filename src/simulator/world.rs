@@ -1,6 +1,6 @@
 use crate::physics;
 use crate::physics::EPSILON;
-use crate::simulator::body::{Body, distance, vector_distance};
+use crate::simulator::body::Body;
 
 pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
 
@@ -70,6 +70,11 @@ impl World {
     }
 
     pub fn reset_viewport(&mut self) {
+        self.min_x = f32::INFINITY;
+        self.max_x = f32::NEG_INFINITY;
+        self.min_y = f32::INFINITY;
+        self.max_y = f32::NEG_INFINITY;
+
         self.bodies.iter().for_each(|p| {
             update_viewport(
                 p,
@@ -91,7 +96,7 @@ impl World {
 
                 self.bodies().iter().enumerate().for_each(|(index2, p2)| {
                     if i != index2 {
-                        let (dx, dy, dz) = vector_distance(p2, p1);
+                        let (dx, dy, dz) = p2.distance_to(p1);
                         let distance_squared = dx * dx + dy * dy + dz * dz;
 
                         if distance_squared > EPSILON {
@@ -106,7 +111,8 @@ impl World {
                 });
 
                 let mut p = p1.clone();
-                p.update(
+                p.update_position(self.dtime);
+                p.accelerate(
                     self.dtime,
                     self.gravity_constant * ax,
                     self.gravity_constant * ay,
@@ -138,6 +144,7 @@ fn update_viewport(p: &Body, min_x: &mut f32, max_x: &mut f32, min_y: &mut f32, 
 mod tests {
     use super::*;
     use crate::physics::assert_approx_eq;
+    use crate::simulator::body::distance;
 
     #[test]
     fn test_single_particle() {

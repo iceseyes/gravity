@@ -1,4 +1,4 @@
-use rand::{random, random_range};
+use rand::random_range;
 use std::f32::consts::PI;
 use std::fmt::{Display, Formatter};
 
@@ -90,13 +90,24 @@ impl Body {
         self.velocity_z = vz;
     }
 
-    pub fn update(&mut self, dt: f32, ax: f32, ay: f32, az: f32) {
-        self.x += dt * self.velocity_x;
-        self.y += dt * self.velocity_y;
-        self.z += dt * self.velocity_z;
+    pub fn distance_to(&self, p2: &Body) -> (f32, f32, f32) {
+        let dx = self.x - p2.x;
+        let dy = self.y - p2.y;
+        let dz = self.z - p2.z;
+
+        (dx, dy, dz)
+    }
+
+    pub fn accelerate(&mut self, dt: f32, ax: f32, ay: f32, az: f32) {
         self.velocity_x += dt * ax;
         self.velocity_y += dt * ay;
         self.velocity_z += dt * az;
+    }
+
+    pub fn update_position(&mut self, dt: f32) {
+        self.x += dt * self.velocity_x;
+        self.y += dt * self.velocity_y;
+        self.z += dt * self.velocity_z;
     }
 }
 
@@ -114,23 +125,15 @@ impl Display for Body {
     }
 }
 
-pub fn vector_distance(p1: &Body, p2: &Body) -> (f32, f32, f32) {
-    let dx = p1.x - p2.x;
-    let dy = p1.y - p2.y;
-    let dz = p1.z - p2.z;
-
-    (dx, dy, dz)
-}
-
 pub fn distance(p1: &Body, p2: &Body) -> f32 {
-    let (dx, dy, dz) = vector_distance(p1, p2);
+    let (dx, dy, dz) = p1.distance_to(p2);
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::{EPSILON, assert_approx_eq};
+    use crate::physics::assert_approx_eq;
 
     #[test]
     fn test_distance() {
@@ -152,7 +155,7 @@ mod tests {
     fn test_acceleration_with_dt_one() {
         let mut p = Body::new(1.0, 1.0);
 
-        p.update(1.0, 1.0, 2.0, 3.0);
+        p.accelerate(1.0, 1.0, 2.0, 3.0);
 
         // La posizione usa la velocità precedente, che era 0.
         assert_approx_eq(p.x, 0.0);
@@ -169,7 +172,7 @@ mod tests {
     fn test_acceleration_with_fractional_dt() {
         let mut p = Body::new(1.0, 1.0);
 
-        p.update(0.5, 2.0, 4.0, 6.0);
+        p.accelerate(0.5, 2.0, 4.0, 6.0);
 
         // v = 0 + a * 0.5
         assert_approx_eq(p.velocity_x, 1.0);
@@ -186,7 +189,7 @@ mod tests {
     fn test_multiple_updates() {
         let mut p = Body::new(1.0, 1.0);
 
-        p.update(1.0, 1.0, 0.0, 0.0);
+        p.accelerate(1.0, 1.0, 0.0, 0.0);
 
         // Dopo il primo step:
         // position = 0
@@ -194,7 +197,8 @@ mod tests {
         assert_approx_eq(p.x, 0.0);
         assert_approx_eq(p.velocity_x, 1.0);
 
-        p.update(1.0, 1.0, 0.0, 0.0);
+        p.update_position(1.0);
+        p.accelerate(1.0, 1.0, 0.0, 0.0);
 
         // Dopo il secondo step:
         // position = 0 + 1 * 1 = 1
@@ -202,7 +206,8 @@ mod tests {
         assert_approx_eq(p.x, 1.0);
         assert_approx_eq(p.velocity_x, 2.0);
 
-        p.update(1.0, 1.0, 0.0, 0.0);
+        p.update_position(1.0);
+        p.accelerate(1.0, 1.0, 0.0, 0.0);
 
         // Dopo il terzo step:
         // position = 1 + 2 * 1 = 3
@@ -213,6 +218,7 @@ mod tests {
 
     #[test]
     fn test_zero_acceleration() {
+        let dt: f32 = 0.5;
         let mut p = Body::new(1.0, 1.0);
 
         // Impostiamo manualmente una velocità iniziale.
@@ -220,14 +226,20 @@ mod tests {
         p.velocity_y = 5.0;
         p.velocity_z = -2.0;
 
-        p.update(0.5, 0.0, 0.0, 0.0);
+        p.accelerate(dt, 0.0, 0.0, 0.0);
 
         // La velocità non cambia.
         assert_approx_eq(p.velocity_x, 10.0);
         assert_approx_eq(p.velocity_y, 5.0);
         assert_approx_eq(p.velocity_z, -2.0);
 
-        // La posizione continua a muoversi.
+        // La posizione non cambia...
+        assert_approx_eq(p.x, 0.0);
+        assert_approx_eq(p.y, 0.0);
+        assert_approx_eq(p.z, 0.0);
+
+        // fino a che non l'aggiorno (applico la velocità)
+        p.update_position(dt);
         assert_approx_eq(p.x, 5.0);
         assert_approx_eq(p.y, 2.5);
         assert_approx_eq(p.z, -1.0);
@@ -241,11 +253,73 @@ mod tests {
         let acceleration = 10.0;
 
         for _ in 0..10 {
-            p.update(dt, acceleration, 0.0, 0.0);
+            p.accelerate(dt, acceleration, 0.0, 0.0);
         }
 
         // v = a * t = 10 * 1 = 10
         assert_approx_eq(p.velocity_x, 10.0);
+    }
+
+    #[test]
+    fn test_acceleration_doesnt_change_position() {
+        let mut p = Body::new(1.0, 1.0);
+        let dt = 1.0;
+        let acceleration = 10.0;
+
+        // applicare solo un'accelerazione
+        p.accelerate(dt, acceleration, 0.0, 0.0);
+        // non cambia la posizione
+        assert_approx_eq(p.x, 0.0);
+        assert_approx_eq(p.y, 0.0);
+        assert_approx_eq(p.z, 0.0);
+
+        // ma aggiorna le velocità
+        assert_approx_eq(p.velocity_x, 10.0);
+        assert_approx_eq(p.velocity_y, 0.0);
+        assert_approx_eq(p.velocity_z, 0.0);
+
+        // se non aggiorno esplicitamente la posizione, non cambia
+        p.accelerate(dt, acceleration, 0.0, 0.0);
+        assert_approx_eq(p.x, 0.0);
+    }
+
+    #[test]
+    fn test_update_position() {
+        let mut p = Body::new(1.0, 1.0);
+
+        // aggiornare la posizione con velocità 0
+        p.update_position(0.5);
+
+        // non cambia la posizione
+        assert_approx_eq(p.x, 0.0);
+        assert_approx_eq(p.y, 0.0);
+        assert_approx_eq(p.z, 0.0);
+
+        p.update_position(0.5);
+        assert_approx_eq(p.x, 0.0);
+        assert_approx_eq(p.y, 0.0);
+        assert_approx_eq(p.z, 0.0);
+
+        // se impongo una velocità, la posizione cambia
+        p.set_velocity(10.0, 0.0, 0.0);
+        p.update_position(0.5);
+        assert_approx_eq(p.x, 5.0);
+        assert_approx_eq(p.y, 0.0);
+        assert_approx_eq(p.z, 0.0);
+
+        // in base al vettore velocità configurato
+        p.set_velocity(0.0, 10.0, 0.0);
+        p.update_position(0.5);
+        assert_approx_eq(p.x, 5.0);
+        assert_approx_eq(p.y, 5.0);
+        assert_approx_eq(p.z, 0.0);
+
+        // ...e anche per l'asse z
+        p.set_velocity(0.0, 0.0, 10.0);
+        p.update_position(0.5);
+        assert_approx_eq(p.x, 5.0);
+        assert_approx_eq(p.y, 5.0);
+        assert_approx_eq(p.z, 5.0);
     }
 
     #[test]
@@ -256,7 +330,8 @@ mod tests {
         let acceleration = 10.0;
 
         for _ in 0..10 {
-            p.update(dt, acceleration, 0.0, 0.0);
+            p.update_position(dt);
+            p.accelerate(dt, acceleration, 0.0, 0.0);
         }
 
         assert_approx_eq(p.velocity_x, 10.0);
