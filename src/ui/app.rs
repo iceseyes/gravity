@@ -1,27 +1,38 @@
 use crate::ui::camera_2d::Camera2D;
+use crate::ui::format_duration;
 use eframe::egui;
-use eframe::egui::Rect;
+use eframe::egui::{Rect, RichText};
+use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot, SimulationWarning};
 use gravity::simulator::{Snapshot, World};
+use std::sync::mpsc;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct GravityApp {
+    handle: mpsc::Sender<SimulationCommand>,
     snapshot: Snapshot,
     camera: Camera2D,
     reset_viewport: bool,
-    running: bool,
+    simulation: SimulationSnapshot,
 }
 
 impl GravityApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>, snapshot: Snapshot) -> Self {
+    pub fn new(
+        _cc: &eframe::CreationContext<'_>,
+        handle: mpsc::Sender<SimulationCommand>,
+        snapshot: Snapshot,
+    ) -> Self {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
+        let simulation = snapshot.read().unwrap().clone();
         Self {
+            handle,
             snapshot,
             camera: Camera2D::default(),
             reset_viewport: true,
-            running: true,
+            simulation,
         }
     }
 
@@ -47,7 +58,8 @@ impl GravityApp {
         rect
     }
 
-    fn draw_world(&mut self, ui: &mut egui::Ui, rect: Rect, world: &World) {
+    fn draw_world(&mut self, ui: &mut egui::Ui, rect: Rect) {
+        let world = &self.simulation.world;
         let painter = ui.painter_at(rect);
         painter.rect(
             rect,
@@ -135,6 +147,10 @@ impl GravityApp {
 
 impl eframe::App for GravityApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if let Ok(snapshot) = self.snapshot.read() {
+            self.simulation = snapshot.clone();
+        }
+
         egui::Panel::top("top_panel").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label("Gravity Simulator");
@@ -149,23 +165,53 @@ impl eframe::App for GravityApp {
                 }
 
                 if ui
-                    .add(egui::Checkbox::new(&mut self.running, "Running"))
+                    .add(egui::Checkbox::new(&mut self.simulation.running, "Running"))
                     .changed()
-                {}
+                {
+                    println!("Simulation is now {}", self.simulation.running);
+                    let command = if self.simulation.running {
+                        SimulationCommand::Restart
+                    } else {
+                        SimulationCommand::Pause
+                    };
+
+                    if let Err(e) = self.handle.send(command) {
+                        println!("Failed to send command: {}", e);
+                    }
+                }
+
+                ui.separator();
+
+                let time = Duration::from_secs_f32(self.simulation.time as f32);
+                ui.label(RichText::new(format!("Time: {}", format_duration(time))).monospace());
+
+                ui.separator();
+
+                ui.label(
+                    RichText::new(format!(
+                        "Samples/Second: {:.2}",
+                        self.simulation.samples_per_second
+                    ))
+                    .monospace(),
+                );
+
+                ui.separator();
+
+                if self.simulation.warning != SimulationWarning::None {
+                    ui.label(format!("Warning: {:?}", self.simulation.warning));
+                    let _ = self.handle.send(SimulationCommand::ResetWarning);
+                }
             });
         });
 
         egui::CentralPanel::default().show(ui, |ui| {
             let rect = self.world_viewport(ui);
-            let snapshot = self.snapshot.clone();
-            let world = snapshot.read().unwrap();
-
             if self.reset_viewport {
-                self.camera.fit(&rect, &world);
+                self.camera.fit(&rect, &self.simulation.world);
                 self.reset_viewport = false;
             }
 
-            self.draw_world(ui, rect, &world);
+            self.draw_world(ui, rect);
         });
 
         // demand next frame

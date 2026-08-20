@@ -6,14 +6,15 @@ pub mod world;
 use crate::physics;
 pub use crate::simulator::body::Body;
 pub use crate::simulator::world::World;
-use std::sync::{Arc, RwLock};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, RwLock, mpsc};
 use std::thread::JoinHandle;
 
-use crate::simulator::simulation::run;
+use crate::simulator::simulation::{SimulationCommand, SimulationSnapshot, run};
 
-pub type Snapshot = Arc<RwLock<World>>;
+pub type Snapshot = Arc<RwLock<SimulationSnapshot>>;
 
-pub fn random(n_bodies: usize) -> (JoinHandle<()>, Snapshot) {
+pub fn random(n_bodies: usize) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
     let mut world = World::default();
     for _ in 0..n_bodies {
         world.add_body(Body::random());
@@ -22,7 +23,7 @@ pub fn random(n_bodies: usize) -> (JoinHandle<()>, Snapshot) {
     run(world, 60.0 * 60.0 * 24.0 * 365.0 * 1e1, 120)
 }
 
-pub fn three_bodies_aligned() -> (JoinHandle<()>, Snapshot) {
+pub fn three_bodies_aligned() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     let mut world = World::default();
 
     let mut p = Body::new(1_000_000_000.0, 1.0);
@@ -38,7 +39,7 @@ pub fn three_bodies_aligned() -> (JoinHandle<()>, Snapshot) {
     run(world, 1e-3, 1000000)
 }
 
-pub fn orbit() -> (JoinHandle<()>, Snapshot) {
+pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     let mut world = World::new(physics::G);
 
     let mut star = Body::new(1.0e30, 9.7e8);

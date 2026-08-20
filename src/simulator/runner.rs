@@ -42,6 +42,7 @@ impl Runner {
     pub fn run_once(&mut self) {
         if self.running {
             self.step();
+            self.world.reset_viewport();
         }
     }
 
