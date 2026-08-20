@@ -1,0 +1,172 @@
+use crate::simulator;
+use crate::simulator::World;
+use crate::ui::camera_2d::Camera2D;
+use eframe::egui;
+use eframe::egui::Rect;
+
+#[derive(Default)]
+pub struct GravityApp {
+    world: World,
+    camera: Camera2D,
+    speed: usize,
+    reset_viewport: bool,
+}
+
+impl GravityApp {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
+        // Restore app state using cc.storage (requires the "persistence" feature).
+        // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
+        // for e.g. egui::PaintCallback.
+
+        // let world = simulator::orbit();
+        // let world = simulator::three_bodies_aligned();
+        let world = simulator::random(100);
+        let camera = Camera2D::default();
+
+        Self {
+            world,
+            camera,
+            speed: 1000,
+            reset_viewport: true,
+        }
+    }
+
+    fn world_viewport(&mut self, ui: &mut egui::Ui) -> Rect {
+        let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::drag());
+
+        if self.reset_viewport {
+            self.world.reset_viewport();
+            self.camera.fit(&rect, &self.world);
+            self.reset_viewport = false;
+        }
+
+        if response.dragged() {
+            let delta = response.drag_motion();
+
+            self.camera.pan(delta);
+        }
+
+        let scroll = ui.input(|i| i.smooth_scroll_delta);
+        if response.hovered() && scroll.y != 0.0 {
+            let factor = 1.1_f32.powf(scroll.y / 100.0);
+            if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
+                self.camera.zoom_at(&rect, factor, mouse_pos);
+            } else {
+                self.camera.set_scale(self.camera.scale() * factor);
+            }
+        }
+
+        rect
+    }
+
+    fn draw_world(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let rect = self.world_viewport(ui);
+        let painter = ui.painter_at(rect);
+        painter.rect(
+            rect,
+            egui::CornerRadius::default(),
+            egui::Color32::from_rgba_premultiplied(0, 0, 10, 0),
+            egui::Stroke::new(2.0, egui::Color32::DARK_GRAY),
+            egui::StrokeKind::Inside,
+        );
+
+        painter.circle_filled(
+            self.camera.point_to_screen(&rect, 0.0, 0.0, 0.0),
+            self.camera.length_to_screen(1.0),
+            egui::Color32::GREEN,
+        );
+
+        for index in 0..10 {
+            let w = rect.width() * index as f32 / 10.0;
+            let h = rect.height() * index as f32 / 10.0;
+            let (x, y, _) = self.camera.point_to_world(&rect, egui::pos2(w, h));
+            painter.text(
+                egui::pos2(w, rect.bottom()),
+                egui::Align2::CENTER_BOTTOM,
+                format!("{:.2}m", x),
+                egui::FontId::monospace(12.0),
+                egui::Color32::WHITE,
+            );
+            painter.text(
+                egui::pos2(10.0, h),
+                egui::Align2::LEFT_CENTER,
+                format!("{:.2}m", y),
+                egui::FontId::monospace(12.0),
+                egui::Color32::WHITE,
+            );
+            painter.line(
+                vec![egui::pos2(w, 0.0), egui::pos2(w, rect.bottom())],
+                egui::Stroke::new(0.5, egui::Color32::from_rgba_premultiplied(64, 64, 64, 0)),
+            );
+            painter.line(
+                vec![egui::pos2(0.0, h), egui::pos2(rect.right(), h)],
+                egui::Stroke::new(0.5, egui::Color32::from_rgba_premultiplied(64, 64, 64, 0)),
+            );
+        }
+
+        for p in self.world.bodies() {
+            let speed = p.speed();
+            let (x, y, z) = p.position();
+            let (vx, vy, _) = p.velocity_direction();
+            let radius = p.radius();
+            let position = self.camera.point_to_screen(&rect, x, y, z);
+            let velocity = self.camera.point_to_screen(
+                &rect,
+                x + (2.0 * radius * vx * speed),
+                y + (2.0 * radius * vy * speed),
+                z,
+            );
+            let radius = self.camera.length_to_screen(p.radius());
+
+            painter.circle_filled(position, radius, egui::Color32::WHITE);
+            painter.text(
+                position,
+                egui::Align2::CENTER_CENTER,
+                format!("{:.2}m/s", speed),
+                egui::FontId::monospace(8.0),
+                egui::Color32::RED,
+            );
+
+            let direction = vec![position, velocity];
+            painter.line(
+                direction,
+                egui::Stroke::new(2.0, egui::Color32::from_rgba_premultiplied(128, 0, 0, 0)),
+            );
+        }
+    }
+}
+
+impl eframe::App for GravityApp {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if self.speed > 0 {
+            for _ in 0..self.speed {
+                self.world.update();
+            }
+        }
+
+        egui::Panel::top("top_panel").show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Gravity Simulator");
+
+                ui.add(egui::Label::new(format!(
+                    "Scale: {:.4} pixel/meter",
+                    self.camera.scale()
+                )));
+
+                if ui.add(egui::Button::new("Reset")).clicked() {
+                    self.reset_viewport = true;
+                }
+
+                ui.add(egui::Slider::new(&mut self.speed, 0usize..=1000usize).text("ms/frame"));
+            });
+        });
+
+        egui::CentralPanel::default().show(ui, |ui| {
+            self.draw_world(ui, frame);
+        });
+
+        // demand next frame
+        ui.ctx().request_repaint();
+    }
+}
