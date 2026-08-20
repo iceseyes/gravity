@@ -1,37 +1,32 @@
 use crate::ui::camera_2d::Camera2D;
 use eframe::egui;
 use eframe::egui::Rect;
-use gravity::simulator::World;
-use gravity::simulator::runner::Runner;
+use gravity::simulator::{Snapshot, World};
 
-#[derive(Default)]
+#[derive(Debug)]
 pub struct GravityApp {
-    simulator: Runner,
+    snapshot: Snapshot,
     camera: Camera2D,
     reset_viewport: bool,
+    running: bool,
 }
 
 impl GravityApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, simulator: Runner) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>, snapshot: Snapshot) -> Self {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
         Self {
-            simulator,
+            snapshot,
             camera: Camera2D::default(),
             reset_viewport: true,
+            running: true,
         }
     }
 
-    fn world_viewport(&mut self, ui: &mut egui::Ui, world: &mut World) -> Rect {
+    fn world_viewport(&mut self, ui: &mut egui::Ui) -> Rect {
         let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::drag());
-
-        if self.reset_viewport {
-            world.reset_viewport();
-            self.camera.fit(&rect, &world);
-            self.reset_viewport = false;
-        }
 
         if response.dragged() {
             let delta = response.drag_motion();
@@ -52,9 +47,7 @@ impl GravityApp {
         rect
     }
 
-    fn draw_world(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let mut world = self.simulator.world();
-        let rect = self.world_viewport(ui, &mut world);
+    fn draw_world(&mut self, ui: &mut egui::Ui, rect: Rect, world: &World) {
         let painter = ui.painter_at(rect);
         painter.rect(
             rect,
@@ -142,11 +135,6 @@ impl GravityApp {
 
 impl eframe::App for GravityApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        let mut running = self.simulator.is_running();
-        if running {
-            self.simulator.step();
-        }
-
         egui::Panel::top("top_panel").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label("Gravity Simulator");
@@ -161,20 +149,23 @@ impl eframe::App for GravityApp {
                 }
 
                 if ui
-                    .add(egui::Checkbox::new(&mut running, "Running"))
+                    .add(egui::Checkbox::new(&mut self.running, "Running"))
                     .changed()
-                {
-                    if running {
-                        self.simulator.restart();
-                    } else {
-                        self.simulator.stop();
-                    }
-                }
+                {}
             });
         });
 
         egui::CentralPanel::default().show(ui, |ui| {
-            self.draw_world(ui, frame);
+            let rect = self.world_viewport(ui);
+            let snapshot = self.snapshot.clone();
+            let world = snapshot.read().unwrap();
+
+            if self.reset_viewport {
+                self.camera.fit(&rect, &world);
+                self.reset_viewport = false;
+            }
+
+            self.draw_world(ui, rect, &world);
         });
 
         // demand next frame

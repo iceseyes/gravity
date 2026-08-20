@@ -30,6 +30,15 @@ impl World {
         }
     }
 
+    pub fn copy_from(&mut self, other: &Self) {
+        self.gravity_constant = other.gravity_constant;
+        self.bodies = other.bodies.clone();
+        self.min_x = other.min_x;
+        self.max_x = other.max_x;
+        self.min_y = other.min_y;
+        self.max_y = other.max_y;
+    }
+
     pub fn add_body(&mut self, p: Body) {
         update_viewport(
             &p,

@@ -1,6 +1,7 @@
 use eframe::emath::{Pos2, Rect, Vec2};
 use gravity::simulator::World;
 
+#[derive(Debug)]
 pub struct Camera2D {
     center: Pos2, // meters (world space)
     scale: f32,   // pixels per meter

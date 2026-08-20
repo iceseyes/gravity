@@ -35,17 +35,13 @@ impl Runner {
         self.running = false;
     }
 
-    pub fn restart(&mut self) {
+    pub fn start(&mut self) {
         self.running = true;
     }
 
-    pub fn run(&mut self) {
-        self.running = true;
-
-        loop {
-            if self.running {
-                self.step();
-            }
+    pub fn run_once(&mut self) {
+        if self.running {
+            self.step();
         }
     }
 
