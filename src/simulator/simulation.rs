@@ -1,8 +1,8 @@
 use crate::simulator::runner::Runner;
 use crate::simulator::{Snapshot, World};
 use std::sync::{Arc, RwLock, mpsc};
-use std::thread::{JoinHandle, sleep, spawn};
-use std::time::{Duration, Instant};
+use std::thread::{JoinHandle, spawn};
+use std::time::Instant;
 
 pub enum SimulationCommand {
     Restart,
@@ -23,23 +23,42 @@ pub enum SimulationWarning {
 struct Simulation {
     runner: Runner,
     running: bool,
+    desired_steps_per_second: f64,
+    last_steps_per_second: f64,
+
+    last_update: Instant,
+    accumulator: f64,
+
+    command_rx: mpsc::Receiver<SimulationCommand>,
+
     snapshot: Snapshot,
 }
 
 impl Simulation {
-    const FRAME_PER_SECOND: u32 = 60;
+    const MAX_STEPS_PER_FRAME: f64 = 100.0;
 
-    fn new(runner: Runner) -> Self {
+    fn new(
+        runner: Runner,
+        steps_per_second: f64,
+        command_rx: mpsc::Receiver<SimulationCommand>,
+    ) -> Self {
         let snapshot = Arc::new(RwLock::new(SimulationSnapshot::new(&runner)));
         Self {
             runner,
             running: true,
+            desired_steps_per_second: steps_per_second,
+            last_steps_per_second: steps_per_second,
+            last_update: Instant::now(),
+            accumulator: 0.0,
+            command_rx,
             snapshot,
         }
     }
 
     fn start(&mut self) {
         self.running = true;
+        self.accumulator = 0.0;
+        self.last_update = Instant::now();
         if let Ok(mut snapshot) = self.snapshot.write() {
             snapshot.running = true;
         }
@@ -68,6 +87,57 @@ impl Simulation {
         }
     }
 
+    fn update(&mut self) -> bool {
+        if !self.running {
+            return if !self.receive_command() {
+                false
+            } else {
+                self.last_update = Instant::now();
+                true
+            };
+        }
+
+        let now = Instant::now();
+        let elapsed = (now - self.last_update).as_secs_f64();
+
+        self.accumulator += elapsed * self.desired_steps_per_second;
+
+        let steps = self.accumulator.floor().min(Self::MAX_STEPS_PER_FRAME) as usize;
+        self.accumulator -= steps as f64;
+
+        self.last_update = now;
+        for _ in 0..steps {
+            if !self.receive_command() {
+                return false;
+            }
+
+            self.step();
+        }
+
+        self.last_steps_per_second = steps as f64 / self.last_update.elapsed().as_secs_f64();
+
+        if self.last_steps_per_second < self.desired_steps_per_second {
+            if let Ok(mut snapshot) = self.snapshot.write() {
+                snapshot.warning = SimulationWarning::SimulationTooSlow;
+            }
+        } else if self.last_steps_per_second > self.desired_steps_per_second
+            && let Ok(mut snapshot) = self.snapshot.write()
+        {
+            snapshot.warning = SimulationWarning::SimulationTooFast;
+        }
+
+        true
+    }
+
+    fn receive_command(&mut self) -> bool {
+        let mut cont = true;
+        if let Ok(command) = self.command_rx.try_recv() {
+            cont = self.handle(command);
+        }
+
+        cont
+    }
+
     fn handle(&mut self, command: SimulationCommand) -> bool {
         match command {
             SimulationCommand::Restart => self.start(),
@@ -89,7 +159,7 @@ pub struct SimulationSnapshot {
     pub world: World,
     pub time: f64,
     pub running: bool,
-    pub samples_per_second: f32,
+    pub samples_per_second: f64,
     pub warning: SimulationWarning,
 }
 
@@ -108,6 +178,7 @@ impl SimulationSnapshot {
         self.world = simulation.runner.world();
         self.time = simulation.runner.time();
         self.running = simulation.is_running();
+        self.samples_per_second = simulation.last_steps_per_second;
     }
 }
 
@@ -117,63 +188,15 @@ pub fn run(
     steps_per_sec: u32,
 ) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
     let (tx, rx) = mpsc::channel();
-    let mut simulation = Simulation::new(Runner::new(world, dt));
+    let mut simulation = Simulation::new(Runner::new(world, dt), steps_per_sec as f64, rx);
     let snapshot = simulation.snapshot.clone();
 
     simulation.start();
 
     let simulation_thread = spawn(move || {
-        let snapshot = simulation.snapshot.clone();
-        let steps_per_frame = steps_per_sec / Simulation::FRAME_PER_SECOND;
-        let frame_duration =
-            Duration::from_micros((1e6 / Simulation::FRAME_PER_SECOND as f32) as u64);
-
-        let mut frame_steps = 0u32;
-        let mut steps_per_second_count = 0u32;
-        let mut frame_timer = Instant::now();
-        let mut fps_timer = Instant::now();
-
         loop {
-            if let Ok(command) = rx.try_recv() {
-                let cont = simulation.handle(command);
-
-                if !cont {
-                    break;
-                }
-            }
-
-            simulation.step();
-            steps_per_second_count += 1;
-            frame_steps += 1;
-
-            if frame_steps >= steps_per_frame {
-                if let Some(rest) = frame_duration.checked_sub(frame_timer.elapsed()) {
-                    if let Ok(mut snapshot) = snapshot.write() {
-                        snapshot.warning = SimulationWarning::SimulationTooFast;
-                    }
-
-                    sleep(rest);
-                }
-
-                frame_steps = 0;
-                frame_timer = Instant::now();
-            } else if frame_timer.elapsed() >= frame_duration {
-                if let Ok(mut snapshot) = snapshot.write() {
-                    snapshot.warning = SimulationWarning::SimulationTooSlow;
-                }
-
-                frame_timer = Instant::now();
-                frame_steps = 0;
-            }
-
-            if fps_timer.elapsed() >= Duration::from_secs(1) {
-                if let Ok(mut snapshot) = snapshot.write() {
-                    snapshot.samples_per_second =
-                        steps_per_second_count as f32 / fps_timer.elapsed().as_secs_f32();
-                }
-
-                steps_per_second_count = 0;
-                fps_timer = Instant::now();
+            if !simulation.update() {
+                break;
             }
         }
     });
