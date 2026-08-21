@@ -1,4 +1,4 @@
-use crate::physics::{G, dynamic, gravity};
+use crate::physics::{dynamic, gravity};
 use rand::random_range;
 use std::f32::consts::PI;
 use std::f64;
@@ -120,9 +120,9 @@ impl Body {
         self.z += dt * self.velocity_z;
     }
 
-    pub fn in_circular_orbit(&mut self, star: &Body, distance: f32) {
+    pub fn in_circular_orbit(&mut self, gravity_constant: f64, star: &Body, distance: f32) {
         let v_squared = gravity::orbital_squared_velocity(star.mass(), distance);
-        let orbital_v = (G as f64 * v_squared).sqrt();
+        let orbital_v = (gravity_constant * v_squared).sqrt();
         self.move_to(star.x + distance, star.y, star.z);
         self.set_velocity(
             star.velocity_x,
@@ -176,10 +176,10 @@ pub fn kinetic_energy(bodies: &[Body]) -> f64 {
     bodies.iter().fold(0.0, |k, body| k + body.kinetic_energy())
 }
 
-pub fn potential_energy(bodies: &[Body]) -> f64 {
-    G as f64
+pub fn potential_energy(gravity_constant: f64, bodies: &[Body]) -> f64 {
+    gravity_constant
         * bodies.iter().enumerate().fold(0.0, |k, (index, body)| {
-            k + bodies.iter().skip(index).fold(k, |k, b2| {
+            bodies.iter().skip(index + 1).fold(k, |k, b2| {
                 let (dx, dy, dz) = body.distance_to(b2);
                 k + gravity::potential_energy(body.mass, b2.mass, dx, dy, dz)
             })
@@ -189,7 +189,7 @@ pub fn potential_energy(bodies: &[Body]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::assert_approx_eq;
+    use crate::physics::{G, assert_approx_eq, assert_approx_eq_f64};
 
     #[test]
     fn test_distance() {
@@ -418,5 +418,35 @@ mod tests {
         assert_approx_eq(x, 0.0);
         assert_approx_eq(y, 0.0);
         assert_approx_eq(z, 0.0);
+    }
+
+    #[test]
+    fn test_potential_energy_two_bodies() {
+        let mut p1 = Body::new(1.0, 1.0);
+        let mut p2 = Body::new(1.0, 1.0);
+
+        p1.move_to(0.0, 0.0, 0.0);
+        p2.move_to(10.0, 0.0, 0.0);
+
+        let energy = potential_energy(G, &[p1, p2]);
+
+        assert_approx_eq_f64(energy, -G / 10.0);
+    }
+
+    #[test]
+    fn test_potential_energy_three_bodies() {
+        let mut p1 = Body::new(1.0, 1.0);
+        let mut p2 = Body::new(2.0, 1.0);
+        let mut p3 = Body::new(3.0, 1.0);
+
+        p1.move_to(0.0, 0.0, 0.0);
+        p2.move_to(10.0, 0.0, 0.0);
+        p3.move_to(20.0, 0.0, 0.0);
+
+        let bodies = [p1, p2, p3];
+
+        let energy = potential_energy(1.0, &bodies);
+
+        assert_approx_eq_f64(energy, -0.95);
     }
 }

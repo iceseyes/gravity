@@ -55,6 +55,9 @@ pub fn center_of_mass(mass: f32, x: f32, y: f32, z: f32) -> (f64, f64, f64) {
 /// assert_eq!(ec, 14.5);
 /// ```
 pub fn kinetic_energy(mass: f32, vx: f32, vy: f32, vz: f32) -> f64 {
+    let vx = vx as f64;
+    let vy = vy as f64;
+    let vz = vz as f64;
     let v2 = (vx * vx) + (vy * vy) + (vz * vz);
-    0.5 * mass as f64 * v2 as f64
+    0.5 * mass as f64 * v2
 }

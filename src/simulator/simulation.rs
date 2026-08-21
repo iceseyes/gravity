@@ -122,6 +122,7 @@ impl Simulation {
 
             self.step();
         }
+        self.runner.update_world_size();
 
         let seconds_since_start = (now - self.start_time).as_secs_f64();
         if self.total_steps > 0.0 && seconds_since_start > 0.0 {

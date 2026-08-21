@@ -7,7 +7,7 @@ pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
 
 #[derive(Debug, Clone)]
 pub struct World {
-    gravity_constant: f32,
+    gravity_constant: f64,
     bodies: Vec<Body>,
     min_x: f32,
     max_x: f32,
@@ -16,7 +16,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(gravity_constant: f32) -> Self {
+    pub fn new(gravity_constant: f64) -> Self {
         let min_x = f32::INFINITY;
         let max_x = f32::NEG_INFINITY;
         let min_y = f32::INFINITY;
@@ -80,7 +80,7 @@ impl World {
         }
     }
 
-    pub fn gravity_constant(&self) -> f32 {
+    pub fn gravity_constant(&self) -> f64 {
         self.gravity_constant
     }
 
@@ -105,14 +105,14 @@ impl World {
     }
 
     pub fn potential_energy(&self) -> f64 {
-        potential_energy(&self.bodies)
+        potential_energy(self.gravity_constant, &self.bodies)
     }
 
     pub fn energy(&self) -> f64 {
         self.kinetic_energy() + self.potential_energy()
     }
 
-    pub fn reset_viewport(&mut self) {
+    pub fn compute_world_size(&mut self) {
         self.min_x = f32::INFINITY;
         self.max_x = f32::NEG_INFINITY;
         self.min_y = f32::INFINITY;

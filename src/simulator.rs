@@ -46,7 +46,7 @@ pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     star.move_to(0.0, 0.0, 0.0);
 
     let mut planet = Body::new(1.0e20, 1.0e8);
-    planet.in_circular_orbit(&star, 1.0e9);
+    planet.in_circular_orbit(physics::G, &star, 1.0e9);
 
     world.add_body(star);
     world.add_body(planet);
@@ -61,31 +61,31 @@ pub fn sol() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     sol.move_to(0.0, 0.0, 0.0);
 
     let mut mercury = Body::new(3.301e23, 2.4397e6);
-    mercury.in_circular_orbit(&sol, 5.79e10);
+    mercury.in_circular_orbit(physics::G, &sol, 5.79e10);
 
     let mut venus = Body::new(4.8675e24, 6.0518e6);
-    venus.in_circular_orbit(&sol, 1.082e11);
+    venus.in_circular_orbit(physics::G, &sol, 1.082e11);
 
     let mut earth = Body::new(5.972e24, 6.37814e6);
-    earth.in_circular_orbit(&sol, 1.496e11);
+    earth.in_circular_orbit(physics::G, &sol, 1.496e11);
 
     let mut mars = Body::new(6.4171e23, 3.3972e6);
-    mars.in_circular_orbit(&sol, 2.279e11);
+    mars.in_circular_orbit(physics::G, &sol, 2.279e11);
 
     let mut jupiter = Body::new(1.8986e27, 7.1492e7);
-    jupiter.in_circular_orbit(&sol, 7.783e11);
+    jupiter.in_circular_orbit(physics::G, &sol, 7.783e11);
 
     let mut saturn = Body::new(5.6834e26, 6.0268e7);
-    saturn.in_circular_orbit(&sol, 1.4336e12);
+    saturn.in_circular_orbit(physics::G, &sol, 1.4336e12);
 
     let mut uranus = Body::new(8.6810e25, 2.5559e7);
-    uranus.in_circular_orbit(&sol, 2.8710e12);
+    uranus.in_circular_orbit(physics::G, &sol, 2.8710e12);
 
     let mut neptune = Body::new(1.0243e26, 2.4746e7);
-    neptune.in_circular_orbit(&sol, 4.4954e12);
+    neptune.in_circular_orbit(physics::G, &sol, 4.4954e12);
 
     let mut pluto = Body::new(1.303e22, 1.137e6);
-    pluto.in_circular_orbit(&sol, 5.982e12);
+    pluto.in_circular_orbit(physics::G, &sol, 5.982e12);
 
     world.add_body(sol);
     world.add_body(mercury);
@@ -98,5 +98,5 @@ pub fn sol() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     world.add_body(neptune);
     world.add_body(pluto);
 
-    run(world, 60.0, 60)
+    run(world, 1.0, 2000000)
 }

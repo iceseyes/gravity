@@ -11,9 +11,9 @@ pub const MIN_DISTANCE_SQUARED: f32 = 1e-12;
 ///
 /// let (ax, ay, az) = gravity_field(1.0, 10.0, 0.0, 0.0);
 ///
-/// assert_eq!(G * ax, 6.674081e-13);
-/// assert_eq!(G * ay, 0.0);
-/// assert_eq!(G * az, 0.0);
+/// assert_eq!(G * ax as f64, 6.674080472394825e-13);
+/// assert_eq!(G * ay as f64, 0.0);
+/// assert_eq!(G * az as f64, 0.0);
 /// ```
 pub fn gravity_field(m: f32, dx: f32, dy: f32, dz: f32) -> (f32, f32, f32) {
     let distance_squared = dx * dx + dy * dy + dz * dz;
@@ -28,22 +28,6 @@ pub fn gravity_field(m: f32, dx: f32, dy: f32, dz: f32) -> (f32, f32, f32) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::physics::{G, assert_approx_eq};
-
-    #[test]
-    fn test_gravity_field() {
-        let (ax, ay, az) = gravity_field(1.0, 10.0, 0.0, 0.0);
-        assert_approx_eq(ax, 0.01);
-        assert_approx_eq(ay, 0.0);
-        assert_approx_eq(az, 0.0);
-
-        assert_eq!(G * ax, 6.674081e-13);
-    }
-}
-
 /// Compute Potential Energy.
 ///
 /// This function computes Potential Energy between two bodies using $G=1$. To get
@@ -55,7 +39,7 @@ mod tests {
 /// use gravity::physics::G;
 ///
 /// let u = potential_energy(1.0, 2.0, 3.0, 4.0, 5.0);
-/// assert_eq!(G as f64 * u, G as f64 * -2.0 / 50_f64.sqrt());
+/// assert_eq!(G * u, G as f64 * -2.0 / 50_f64.sqrt());
 /// ```
 pub fn potential_energy(m1: f32, m2: f32, dx: f32, dy: f32, dz: f32) -> f64 {
     let dx = dx as f64;
@@ -80,10 +64,26 @@ pub fn potential_energy(m1: f32, m2: f32, dx: f32, dy: f32, dz: f32) -> f64 {
 /// use gravity::physics::G;
 ///
 /// let v_squared = orbital_squared_velocity(1.0e30, 1.0e11);
-/// let v = (G as f64 * v_squared).sqrt();
+/// let v = (G * v_squared).sqrt();
 /// assert!((v - 2.583424e4).abs() < 1e-2);
 /// ```
 pub fn orbital_squared_velocity(mass: f32, distance: f32) -> f64 {
     let distance = distance as f64;
     mass as f64 / distance
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::physics::{G, assert_approx_eq};
+
+    #[test]
+    fn test_gravity_field() {
+        let (ax, ay, az) = gravity_field(1.0, 10.0, 0.0, 0.0);
+        assert_approx_eq(ax, 0.01);
+        assert_approx_eq(ay, 0.0);
+        assert_approx_eq(az, 0.0);
+
+        assert_eq!(G * ax as f64, 6.674080472394825e-13);
+    }
 }
