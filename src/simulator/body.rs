@@ -1,3 +1,4 @@
+use crate::physics::dynamic::orbital_squared_velocity;
 use crate::physics::{G, dynamic};
 use rand::random_range;
 use std::f32::consts::PI;
@@ -118,6 +119,13 @@ impl Body {
         self.x += dt * self.velocity_x;
         self.y += dt * self.velocity_y;
         self.z += dt * self.velocity_z;
+    }
+
+    pub fn in_circular_orbit(&mut self, star: &Body, distance: f32) {
+        let v_squared = orbital_squared_velocity(star.mass(), distance);
+        let orbital_v = (G as f64 * v_squared).sqrt();
+        self.move_to(distance, 0.0, 0.0);
+        self.set_velocity(0.0, orbital_v as f32, 0.0);
     }
 }
 

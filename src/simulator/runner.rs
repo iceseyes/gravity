@@ -195,4 +195,39 @@ mod tests {
         let relative_error = ((final_energy - initial_energy) / initial_energy).abs();
         assert!(relative_error < 1e-4, "relative error: {}", relative_error);
     }
+
+    #[test]
+    fn test_circular_orbit() {
+        let star = Body::new(1.0e30, 1.0e8);
+        let mut planet = Body::new(1.0e20, 1.0e3);
+        let orbital_radius = 1.0e11_f64;
+
+        planet.in_circular_orbit(&star, orbital_radius as f32);
+
+        let mut world = World::default();
+        world.add_body(star);
+        world.add_body(planet);
+
+        let mut runner = Runner::new(world, 1.0);
+        let initial_energy = runner.world.energy();
+        let mut min_distance = f64::MAX;
+        let mut max_distance = 0.0f64;
+
+        for _ in 0..24_320_750 {
+            runner.step();
+
+            let r = distance(&runner.world.bodies()[0], &runner.world.bodies()[1]) as f64;
+
+            min_distance = min_distance.min(r);
+            max_distance = max_distance.max(r);
+        }
+
+        let final_energy = runner.world.energy();
+        let radial_error = (max_distance - min_distance) / orbital_radius;
+        let energy_loss = 100.0 * (final_energy - initial_energy) / initial_energy;
+
+        // the energy loss is less than 2% of the initial energy, so we can tolerate a 5% error
+        assert!(energy_loss > -2.0);
+        assert!(radial_error < 0.05);
+    }
 }

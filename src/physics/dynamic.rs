@@ -86,3 +86,21 @@ pub fn potential_energy(m1: f32, m2: f32, dx: f32, dy: f32, dz: f32) -> f64 {
         -(m1 as f64 * m2 as f64 / r2.sqrt())
     }
 }
+
+/// Compute the orthogonal velocity to stay in circular orbit by the given mass.
+/// The value is the squared velocity using $G=1$. To get the velocity, you have to apply the
+/// gravitational constant and compute the squared root of the result.
+///
+/// Example:
+/// ```
+/// use gravity::physics::dynamic::orbital_squared_velocity;
+/// use gravity::physics::G;
+///
+/// let v_squared = orbital_squared_velocity(1.0e30, 1.0e11);
+/// let v = (G as f64 * v_squared).sqrt();
+/// assert!((v - 2.583424e4).abs() < 1e-2);
+/// ```
+pub fn orbital_squared_velocity(mass: f32, distance: f32) -> f64 {
+    let distance = distance as f64;
+    mass as f64 / distance
+}
