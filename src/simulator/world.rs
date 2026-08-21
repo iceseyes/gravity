@@ -1,5 +1,5 @@
 use crate::physics;
-use crate::simulator::body::Body;
+use crate::simulator::body::{Body, center_of_mass, total_momentum};
 
 pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
 
@@ -88,6 +88,14 @@ impl World {
 
     pub fn mut_bodies(&mut self) -> &mut [Body] {
         &mut self.bodies
+    }
+
+    pub fn total_momentum(&self) -> (f64, f64, f64) {
+        total_momentum(&self.bodies)
+    }
+
+    pub fn center_of_mass(&self) -> (f64, f64, f64) {
+        center_of_mass(&self.bodies)
     }
 
     pub fn reset_viewport(&mut self) {

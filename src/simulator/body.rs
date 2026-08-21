@@ -1,3 +1,5 @@
+use crate::physics;
+use crate::physics::dynamic::momentum;
 use rand::random_range;
 use std::f32::consts::PI;
 use std::fmt::{Display, Formatter};
@@ -90,6 +92,10 @@ impl Body {
         self.velocity_z = vz;
     }
 
+    pub fn velocity(&self) -> (f32, f32, f32) {
+        (self.velocity_x, self.velocity_y, self.velocity_z)
+    }
+
     pub fn distance_to(&self, p2: &Body) -> (f32, f32, f32) {
         let dx = self.x - p2.x;
         let dy = self.y - p2.y;
@@ -128,6 +134,27 @@ impl Display for Body {
 pub fn distance(p1: &Body, p2: &Body) -> f32 {
     let (dx, dy, dz) = p1.distance_to(p2);
     (dx * dx + dy * dy + dz * dz).sqrt()
+}
+
+pub fn total_momentum(bodies: &[Body]) -> (f64, f64, f64) {
+    bodies.iter().fold((0.0, 0.0, 0.0), |(px, py, pz), body| {
+        let (vx, vy, vz) = body.velocity();
+        let (mx, my, mz) = momentum(body.mass(), vx, vy, vz);
+
+        (px + mx, py + my, pz + mz)
+    })
+}
+
+pub fn center_of_mass(bodies: &[Body]) -> (f64, f64, f64) {
+    let (m, bx, by, bz) = bodies
+        .iter()
+        .fold((0.0, 0.0, 0.0, 0.0), |(m, px, py, pz), body| {
+            let (bx, by, bz) = physics::dynamic::center_of_mass(body.mass, body.x, body.y, body.z);
+
+            (m + body.mass() as f64, px + bx, py + by, pz + bz)
+        });
+
+    (bx / m, by / m, bz / m)
 }
 
 #[cfg(test)]

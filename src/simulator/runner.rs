@@ -77,7 +77,7 @@ impl Default for Runner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::assert_approx_eq;
+    use crate::physics::{assert_approx_eq, assert_approx_eq_f64};
     use crate::simulator::Body;
     use crate::simulator::body::distance;
 
@@ -138,5 +138,60 @@ mod tests {
         assert_approx_eq(distance(p1, p2), 0.0);
         assert_approx_eq(p1.speed(), 0.0);
         assert_approx_eq(p2.speed(), 0.0);
+    }
+
+    #[test]
+    fn test_momentum_is_conserved() {
+        let mut p1 = Body::new(1.0e10, 1.0);
+        let mut p2 = Body::new(1.0e10, 1.0);
+
+        p1.move_to(-10.0, 0.0, 0.0);
+        p2.move_to(10.0, 0.0, 0.0);
+
+        p1.set_velocity(0.0, 100.0, 0.0);
+        p2.set_velocity(0.0, -100.0, 0.0);
+
+        let mut world = World::default();
+        world.add_body(p1);
+        world.add_body(p2);
+
+        let mut runner = Runner::new(world, 1e-3);
+        let initial = runner.world.total_momentum();
+
+        for _ in 0..1000 {
+            runner.step();
+        }
+
+        let final_momentum = runner.world.total_momentum();
+
+        assert_approx_eq_f64(initial.0, final_momentum.0);
+        assert_approx_eq_f64(initial.1, final_momentum.1);
+        assert_approx_eq_f64(initial.2, final_momentum.2);
+    }
+
+    #[test]
+    fn test_center_of_mass_does_not_move() {
+        let mut p1 = Body::new(1.0e10, 1.0);
+        let mut p2 = Body::new(1.0e10, 1.0);
+
+        p1.move_to(-10.0, 0.0, 0.0);
+        p2.move_to(10.0, 0.0, 0.0);
+
+        let mut world = World::default();
+        world.add_body(p1);
+        world.add_body(p2);
+
+        let initial_com = world.center_of_mass();
+        let mut runner = Runner::new(world, 1e-3);
+
+        for _ in 0..1000 {
+            runner.step();
+        }
+
+        let final_com = runner.world.center_of_mass();
+
+        assert_approx_eq_f64(initial_com.0, final_com.0);
+        assert_approx_eq_f64(initial_com.1, final_com.1);
+        assert_approx_eq_f64(initial_com.2, final_com.2);
     }
 }
