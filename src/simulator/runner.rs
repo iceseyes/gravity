@@ -194,4 +194,29 @@ mod tests {
         assert_approx_eq_f64(initial_com.1, final_com.1);
         assert_approx_eq_f64(initial_com.2, final_com.2);
     }
+
+    #[test]
+    fn test_energy_conservation() {
+        let mut p1 = Body::new(1.0e10, 1.0);
+        let mut p2 = Body::new(1.0e10, 1.0);
+
+        p1.move_to(-10.0, 0.0, 0.0);
+        p2.move_to(10.0, 0.0, 0.0);
+
+        let mut world = World::default();
+        world.add_body(p1);
+        world.add_body(p2);
+
+        let initial_energy = world.energy();
+        let mut runner = Runner::new(world, 1e-3);
+
+        for _ in 0..1000 {
+            runner.step();
+        }
+
+        let final_energy = runner.world.energy();
+
+        let relative_error = ((final_energy - initial_energy) / initial_energy).abs();
+        assert!(relative_error < 1e-4, "relative error: {}", relative_error);
+    }
 }

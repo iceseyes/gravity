@@ -1,7 +1,7 @@
-use crate::physics;
-use crate::physics::dynamic::momentum;
+use crate::physics::{G, dynamic};
 use rand::random_range;
 use std::f32::consts::PI;
+use std::f64;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
@@ -96,6 +96,10 @@ impl Body {
         (self.velocity_x, self.velocity_y, self.velocity_z)
     }
 
+    pub fn kinetic_energy(&self) -> f64 {
+        dynamic::kinetic_energy(self.mass, self.velocity_x, self.velocity_y, self.velocity_z)
+    }
+
     pub fn distance_to(&self, p2: &Body) -> (f32, f32, f32) {
         let dx = self.x - p2.x;
         let dy = self.y - p2.y;
@@ -139,7 +143,7 @@ pub fn distance(p1: &Body, p2: &Body) -> f32 {
 pub fn total_momentum(bodies: &[Body]) -> (f64, f64, f64) {
     bodies.iter().fold((0.0, 0.0, 0.0), |(px, py, pz), body| {
         let (vx, vy, vz) = body.velocity();
-        let (mx, my, mz) = momentum(body.mass(), vx, vy, vz);
+        let (mx, my, mz) = dynamic::momentum(body.mass(), vx, vy, vz);
 
         (px + mx, py + my, pz + mz)
     })
@@ -149,12 +153,26 @@ pub fn center_of_mass(bodies: &[Body]) -> (f64, f64, f64) {
     let (m, bx, by, bz) = bodies
         .iter()
         .fold((0.0, 0.0, 0.0, 0.0), |(m, px, py, pz), body| {
-            let (bx, by, bz) = physics::dynamic::center_of_mass(body.mass, body.x, body.y, body.z);
+            let (bx, by, bz) = dynamic::center_of_mass(body.mass, body.x, body.y, body.z);
 
             (m + body.mass() as f64, px + bx, py + by, pz + bz)
         });
 
     (bx / m, by / m, bz / m)
+}
+
+pub fn kinetic_energy(bodies: &[Body]) -> f64 {
+    bodies.iter().fold(0.0, |k, body| k + body.kinetic_energy())
+}
+
+pub fn potential_energy(bodies: &[Body]) -> f64 {
+    G as f64
+        * bodies.iter().enumerate().fold(0.0, |k, (index, body)| {
+            k + bodies.iter().skip(index).fold(k, |k, b2| {
+                let (dx, dy, dz) = body.distance_to(b2);
+                k + dynamic::potential_energy(body.mass, b2.mass, dx, dy, dz)
+            })
+        })
 }
 
 #[cfg(test)]

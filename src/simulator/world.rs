@@ -1,5 +1,7 @@
 use crate::physics;
-use crate::simulator::body::{Body, center_of_mass, total_momentum};
+use crate::simulator::body::{
+    Body, center_of_mass, kinetic_energy, potential_energy, total_momentum,
+};
 
 pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
 
@@ -96,6 +98,18 @@ impl World {
 
     pub fn center_of_mass(&self) -> (f64, f64, f64) {
         center_of_mass(&self.bodies)
+    }
+
+    pub fn kinetic_energy(&self) -> f64 {
+        kinetic_energy(self.bodies())
+    }
+
+    pub fn potential_energy(&self) -> f64 {
+        potential_energy(&self.bodies)
+    }
+
+    pub fn energy(&self) -> f64 {
+        self.kinetic_energy() + self.potential_energy()
     }
 
     pub fn reset_viewport(&mut self) {
