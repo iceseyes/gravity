@@ -76,8 +76,8 @@ impl GravityApp {
         );
 
         for index in 0..10 {
-            let w = rect.width() * index as f32 / 10.0;
-            let h = rect.height() * index as f32 / 10.0;
+            let w = rect.left() + rect.width() * index as f32 / 10.0;
+            let h = rect.top() + rect.height() * index as f32 / 10.0;
             let (x, y, _) = self.camera.point_to_world(&rect, egui::pos2(w, h));
             painter.text(
                 egui::pos2(w, rect.bottom()),
