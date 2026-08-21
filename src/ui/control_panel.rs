@@ -18,53 +18,78 @@ pub(crate) fn draw_control_panel(
         ui.label("Gravity Simulator");
         ui.separator();
 
-        ui.add(egui::Label::new(format!(
-            "Scale: {:.4e} pixel/meter",
-            camera.scale()
-        )));
-
-        if ui.add(egui::Button::new("Fit View")).clicked() {
-            actions.push(ResetViewport)
-        }
-
-        if ui
-            .add(egui::Checkbox::new(&mut simulation.running, "Running"))
-            .changed()
-        {
-            println!("Simulation is now {}", simulation.running);
-            let command = if simulation.running {
-                SimulationCommand::Restart
-            } else {
-                SimulationCommand::Pause
-            };
-
-            actions.push(AppAction::SendSimulationCommand(command));
-        }
-
+        handle_scale(ui, camera, &mut actions);
         ui.separator();
 
-        let time = Duration::from_secs_f32(simulation.time as f32);
-        ui.label(RichText::new(format!("Time: {}", format_duration(time))).monospace());
-
+        handle_simulation_state(ui, simulation, &mut actions);
         ui.separator();
 
-        ui.label(
-            RichText::new(format!(
-                "Samples/Second: {:.2}",
-                simulation.samples_per_second
-            ))
-            .monospace(),
-        );
-
+        show_simulation_time(ui, simulation);
         ui.separator();
 
-        if simulation.warning != SimulationWarning::None {
-            ui.label(format!("Warning: {:?}", simulation.warning));
-            actions.push(AppAction::SendSimulationCommand(
-                SimulationCommand::ResetWarning,
-            ));
-        }
+        show_samples_per_second(ui, simulation);
+        ui.separator();
+
+        show_simulation_warning(ui, simulation, &mut actions);
     });
 
     Ok(actions)
+}
+
+fn handle_scale(ui: &mut egui::Ui, camera: &Camera2D, actions: &mut Vec<AppAction>) {
+    ui.add(egui::Label::new(format!(
+        "Scale: {:.4e} pixel/meter",
+        camera.scale()
+    )));
+
+    if ui.add(egui::Button::new("Fit View")).clicked() {
+        actions.push(ResetViewport)
+    }
+}
+
+fn handle_simulation_state(
+    ui: &mut egui::Ui,
+    simulation: &mut SimulationSnapshot,
+    actions: &mut Vec<AppAction>,
+) {
+    if ui
+        .add(egui::Checkbox::new(&mut simulation.running, "Running"))
+        .changed()
+    {
+        println!("Simulation is now {}", simulation.running);
+        let command = if simulation.running {
+            SimulationCommand::Restart
+        } else {
+            SimulationCommand::Pause
+        };
+
+        actions.push(AppAction::SendSimulationCommand(command));
+    }
+}
+fn show_simulation_time(ui: &mut egui::Ui, simulation: &SimulationSnapshot) {
+    let time = Duration::from_secs_f32(simulation.time as f32);
+    ui.label(RichText::new(format!("Time: {}", format_duration(time))).monospace());
+}
+
+fn show_samples_per_second(ui: &mut egui::Ui, simulation: &SimulationSnapshot) {
+    ui.label(
+        RichText::new(format!(
+            "Samples/Second: {:.2}",
+            simulation.samples_per_second
+        ))
+        .monospace(),
+    );
+}
+
+fn show_simulation_warning(
+    ui: &mut egui::Ui,
+    simulation: &SimulationSnapshot,
+    actions: &mut Vec<AppAction>,
+) {
+    if simulation.warning != SimulationWarning::None {
+        ui.label(format!("Warning: {:?}", simulation.warning));
+        actions.push(AppAction::SendSimulationCommand(
+            SimulationCommand::ResetWarning,
+        ));
+    }
 }
