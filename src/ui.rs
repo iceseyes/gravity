@@ -1,5 +1,9 @@
 pub mod app;
+pub mod body;
 pub mod camera_2d;
+pub mod control_panel;
+pub mod grid;
+pub mod world;
 
 use std::time::Duration;
 
