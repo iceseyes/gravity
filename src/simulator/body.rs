@@ -1,5 +1,4 @@
-use crate::physics::dynamic::orbital_squared_velocity;
-use crate::physics::{G, dynamic};
+use crate::physics::{G, dynamic, gravity};
 use rand::random_range;
 use std::f32::consts::PI;
 use std::f64;
@@ -122,7 +121,7 @@ impl Body {
     }
 
     pub fn in_circular_orbit(&mut self, star: &Body, distance: f32) {
-        let v_squared = orbital_squared_velocity(star.mass(), distance);
+        let v_squared = gravity::orbital_squared_velocity(star.mass(), distance);
         let orbital_v = (G as f64 * v_squared).sqrt();
         self.move_to(star.x + distance, star.y, star.z);
         self.set_velocity(
@@ -182,7 +181,7 @@ pub fn potential_energy(bodies: &[Body]) -> f64 {
         * bodies.iter().enumerate().fold(0.0, |k, (index, body)| {
             k + bodies.iter().skip(index).fold(k, |k, b2| {
                 let (dx, dy, dz) = body.distance_to(b2);
-                k + dynamic::potential_energy(body.mass, b2.mass, dx, dy, dz)
+                k + gravity::potential_energy(body.mass, b2.mass, dx, dy, dz)
             })
         })
 }
