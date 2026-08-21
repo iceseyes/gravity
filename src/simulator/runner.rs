@@ -5,11 +5,11 @@ use crate::simulator::World;
 pub struct Runner {
     world: World,
     time: f64,
-    dt: f32,
+    dt: f64,
 }
 
 impl Runner {
-    pub fn new(world: World, dt: f32) -> Self {
+    pub fn new(world: World, dt: f64) -> Self {
         Self {
             world,
             dt,
@@ -58,13 +58,13 @@ impl Runner {
             .collect();
 
         bodies.iter_mut().enumerate().for_each(|(index, p)| {
-            p.update_position(self.dt);
+            p.update_position(self.dt as f32);
 
             let (ax, ay, az) = accelerations[index];
-            p.accelerate(self.dt, ax, ay, az);
+            p.accelerate(self.dt as f32, ax, ay, az);
         });
 
-        self.time += self.dt as f64;
+        self.time += self.dt;
     }
 }
 

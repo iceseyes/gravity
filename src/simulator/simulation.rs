@@ -24,8 +24,10 @@ struct Simulation {
     runner: Runner,
     running: bool,
     desired_steps_per_second: f64,
-    last_steps_per_second: f64,
+    actual_steps_per_second: f64,
 
+    total_steps: f64,
+    start_time: Instant,
     last_update: Instant,
     accumulator: f64,
 
@@ -47,7 +49,9 @@ impl Simulation {
             runner,
             running: true,
             desired_steps_per_second: steps_per_second,
-            last_steps_per_second: steps_per_second,
+            actual_steps_per_second: steps_per_second,
+            total_steps: 0.0,
+            start_time: Instant::now(),
             last_update: Instant::now(),
             accumulator: 0.0,
             command_rx,
@@ -59,6 +63,8 @@ impl Simulation {
         self.running = true;
         self.accumulator = 0.0;
         self.last_update = Instant::now();
+        self.total_steps = 0.0;
+        self.start_time = Instant::now();
         if let Ok(mut snapshot) = self.snapshot.write() {
             snapshot.running = true;
         }
@@ -66,6 +72,8 @@ impl Simulation {
 
     fn pause(&mut self) {
         self.running = false;
+        self.total_steps = 0.0;
+        self.actual_steps_per_second = 0.0;
         if let Ok(mut snapshot) = self.snapshot.write() {
             snapshot.running = false;
         }
@@ -79,6 +87,7 @@ impl Simulation {
         if self.running {
             self.runner.run_once();
 
+            self.total_steps += 1.0;
             if let Ok(mut snapshot) = self.snapshot.write() {
                 snapshot.copy_from(self);
             } else {
@@ -114,13 +123,16 @@ impl Simulation {
             self.step();
         }
 
-        self.last_steps_per_second = steps as f64 / self.last_update.elapsed().as_secs_f64();
+        let seconds_since_start = (now - self.start_time).as_secs_f64();
+        if self.total_steps > 0.0 && seconds_since_start > 0.0 {
+            self.actual_steps_per_second = self.total_steps / seconds_since_start;
+        }
 
-        if self.last_steps_per_second < self.desired_steps_per_second {
+        if self.actual_steps_per_second < self.desired_steps_per_second {
             if let Ok(mut snapshot) = self.snapshot.write() {
                 snapshot.warning = SimulationWarning::SimulationTooSlow;
             }
-        } else if self.last_steps_per_second > self.desired_steps_per_second
+        } else if self.actual_steps_per_second > self.desired_steps_per_second
             && let Ok(mut snapshot) = self.snapshot.write()
         {
             snapshot.warning = SimulationWarning::SimulationTooFast;
@@ -178,13 +190,13 @@ impl SimulationSnapshot {
         self.world = simulation.runner.world();
         self.time = simulation.runner.time();
         self.running = simulation.is_running();
-        self.samples_per_second = simulation.last_steps_per_second;
+        self.samples_per_second = simulation.actual_steps_per_second;
     }
 }
 
 pub fn run(
     world: World,
-    dt: f32,
+    dt: f64,
     steps_per_sec: u32,
 ) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
     let (tx, rx) = mpsc::channel();
