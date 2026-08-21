@@ -124,8 +124,12 @@ impl Body {
     pub fn in_circular_orbit(&mut self, star: &Body, distance: f32) {
         let v_squared = orbital_squared_velocity(star.mass(), distance);
         let orbital_v = (G as f64 * v_squared).sqrt();
-        self.move_to(distance, 0.0, 0.0);
-        self.set_velocity(0.0, orbital_v as f32, 0.0);
+        self.move_to(star.x + distance, star.y, star.z);
+        self.set_velocity(
+            star.velocity_x,
+            star.velocity_y + orbital_v as f32,
+            star.velocity_z,
+        );
     }
 }
 
