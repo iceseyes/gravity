@@ -143,7 +143,7 @@ mod tests {
         assert_approx_eq(p2.speed(), 0.0);
     }
 
-    macro_rules! two_bodies_in_equilibrium {
+    macro_rules! two_body_test_system {
         ($property: ident $(, setup ($p1:ident, $p2:ident) $setup_func: block)?) => {{
             let mut p1 = Body::new(1.0e10, 1.0);
             let mut p2 = Body::new(1.0e10, 1.0);
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_momentum_is_conserved() {
-        let (initial, final_) = two_bodies_in_equilibrium!(
+        let (initial, final_) = two_body_test_system!(
             total_momentum,
             setup (p1, p2) {
                 p1.set_velocity(0.0, 100.0, 0.0);
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_center_of_mass_does_not_move() {
-        let (initial_com, final_com) = two_bodies_in_equilibrium!(center_of_mass);
+        let (initial_com, final_com) = two_body_test_system!(center_of_mass);
 
         assert_approx_eq_f64(initial_com.0, final_com.0);
         assert_approx_eq_f64(initial_com.1, final_com.1);
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_energy_conservation() {
-        let (initial_energy, final_energy) = two_bodies_in_equilibrium!(energy);
+        let (initial_energy, final_energy) = two_body_test_system!(energy);
         let relative_error = ((final_energy - initial_energy) / initial_energy).abs();
         assert!(relative_error < 1e-4, "relative error: {}", relative_error);
     }
@@ -227,10 +227,13 @@ mod tests {
 
         let final_energy = runner.world.energy();
         let radial_error = (max_distance - min_distance) / orbital_radius;
-        let energy_loss = 100.0 * (final_energy - initial_energy) / initial_energy;
+        let relative_energy_error = ((final_energy - initial_energy) / initial_energy).abs();
 
-        // the energy loss is less than 3% of the initial energy, so we can tolerate a 5% error
-        assert!(energy_loss > -3.0, "energy loss: {}", energy_loss);
+        assert!(
+            relative_energy_error < 0.05,
+            "relative energy error: {}",
+            relative_energy_error
+        );
         assert!(radial_error < 0.05);
     }
 }
