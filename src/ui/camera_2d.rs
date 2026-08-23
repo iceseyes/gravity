@@ -88,8 +88,9 @@ impl Default for Camera2D {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gravity::physics::assert_approx_eq;
-    use gravity::simulator::Body;
+    use gravity::physics::{Vec3, assert_approx_eq};
+    use gravity::simulator::body::BodyBuilder;
+    use gravity::simulator::dimension::Radius;
     use gravity::simulator::world::World;
 
     fn viewport() -> Rect {
@@ -216,15 +217,10 @@ mod tests {
 
     #[test]
     fn test_fit_center() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(1.0, 1.0);
-
-        p1.move_to(-100.0, -50.0, 0.0);
-        p2.move_to(100.0, 50.0, 0.0);
-
+        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(p1);
-        world.add_body(p2);
+        world.add_body(builder.position(Vec3::new(-100.0, -50.0, 0.0)).build());
+        world.add_body(builder.position(Vec3::new(100.0, 50.0, 0.0)).build());
 
         let mut camera = Camera2D::default();
 
@@ -240,15 +236,10 @@ mod tests {
 
     #[test]
     fn test_fit_center_with_offset_world() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(1.0, 1.0);
-
-        p1.move_to(100.0, 200.0, 0.0);
-        p2.move_to(300.0, 400.0, 0.0);
-
+        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(p1);
-        world.add_body(p2);
+        world.add_body(builder.position(Vec3::new(100.0, 200.0, 0.0)).build());
+        world.add_body(builder.position(Vec3::new(300.0, 400.0, 0.0)).build());
 
         let mut camera = Camera2D::default();
 
@@ -266,16 +257,12 @@ mod tests {
 
     #[test]
     fn test_fit_uses_smallest_scale() {
-        let mut p1 = Body::new(1.0, 0.0);
-        let mut p2 = Body::new(1.0, 0.0);
-
-        // World: 1000 x 100
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(1000.0, 100.0, 0.0);
-
+        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(p1);
-        world.add_body(p2);
+
+        builder.radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap());
+        world.add_body(builder.position(Vec3::new(0.0, 0.0, 0.0)).build());
+        world.add_body(builder.position(Vec3::new(1000.0, 100.0, 0.0)).build());
 
         let mut camera = Camera2D::default();
 
@@ -294,15 +281,12 @@ mod tests {
 
     #[test]
     fn test_fit_with_padding() {
-        let mut p1 = Body::new(1.0, 0.0);
-        let mut p2 = Body::new(1.0, 0.0);
-
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(100.0, 100.0, 0.0);
-
+        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(p1);
-        world.add_body(p2);
+
+        builder.radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap());
+        world.add_body(builder.position(Vec3::new(0.0, 0.0, 0.0)).build());
+        world.add_body(builder.position(Vec3::new(100.0, 100.0, 0.0)).build());
 
         let mut camera = Camera2D::new(Pos2::ZERO, 1.0);
 
@@ -326,16 +310,11 @@ mod tests {
 
     #[test]
     fn test_fit_does_not_distort_aspect_ratio() {
-        let mut p1 = Body::new(1.0, 0.0);
-        let mut p2 = Body::new(1.0, 0.0);
-
-        // World 200 x 100
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(100.0, 100.0, 0.0);
-
+        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(p1);
-        world.add_body(p2);
+        builder.radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap());
+        world.add_body(builder.position(Vec3::new(0.0, 0.0, 0.0)).build());
+        world.add_body(builder.position(Vec3::new(100.0, 100.0, 0.0)).build());
 
         let mut camera = Camera2D::default();
 
@@ -357,10 +336,12 @@ mod tests {
 
     #[test]
     fn test_fit_single_particle() {
-        let particle = Body::new(1.0, 1.0);
-
         let mut world = World::default();
-        world.add_body(particle);
+        world.add_body(
+            BodyBuilder::unitary()
+                .position(Vec3::new(0.0, 0.0, 0.0))
+                .build(),
+        );
 
         let mut camera = Camera2D::default();
 

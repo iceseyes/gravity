@@ -5,13 +5,15 @@ pub mod simulation;
 pub mod world;
 
 use crate::physics;
+use crate::physics::Vec3;
 pub use crate::simulator::body::Body;
+use crate::simulator::body::BodyBuilder;
+use crate::simulator::dimension::{Mass, Radius};
+use crate::simulator::simulation::{SimulationCommand, SimulationSnapshot, run};
 pub use crate::simulator::world::World;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock, mpsc};
 use std::thread::JoinHandle;
-
-use crate::simulator::simulation::{SimulationCommand, SimulationSnapshot, run};
 
 pub type Snapshot = Arc<RwLock<SimulationSnapshot>>;
 
@@ -26,27 +28,41 @@ pub fn random(n_bodies: usize) -> (JoinHandle<()>, mpsc::Sender<SimulationComman
 
 pub fn three_bodies_aligned() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     let mut world = World::default();
+    let mut builder = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap());
 
-    let mut p = Body::new(1_000_000_000.0, 1.0);
-    p.move_to(60.0, 60.0, 0.0);
-    world.add_body(p);
-
-    let mut p = Body::new(9_000_000_000_000.0, 9.0);
-    p.move_to(50.0, 50.0, 0.0);
-    world.add_body(p);
-
-    world.add_body(Body::new(2_000_000_000.0, 2.0));
+    world.add_body(builder.position(Vec3::new(60.0, 60.0, 0.0)).build());
+    world.add_body(
+        builder
+            .mass(Mass::kg(9_000_000_000_000.0).unwrap())
+            .radius(Radius::m(9.0).unwrap())
+            .position(Vec3::new(50.0, 50.0, 0.0))
+            .build(),
+    );
+    world.add_body(
+        builder
+            .mass(Mass::kg(2_000_000_000.0).unwrap())
+            .radius(Radius::m(2.0).unwrap())
+            .position(Vec3::new(0.0, 0.0, 0.0))
+            .build(),
+    );
 
     run(world, 1e-3, 1000000)
 }
 
 pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
+    let mut builder = BodyBuilder::unitary();
     let mut world = World::new(physics::G);
 
-    let mut star = Body::new(1.0e30, 4.0e8);
-    star.move_to(0.0, 0.0, 0.0);
+    let star = builder
+        .mass(Mass::kg(1.0e30).unwrap())
+        .radius(Radius::m(6.9634e8).unwrap())
+        .build();
 
-    let mut planet = Body::new(1.0e20, 1.0e8);
+    let mut planet = builder
+        .mass(Mass::kg(1.0e20).unwrap())
+        .radius(Radius::m(6.37814e6).unwrap())
+        .build();
+
     planet.in_circular_orbit(physics::G, &star, 1.0e9);
 
     world.add_body(star);
@@ -56,36 +72,67 @@ pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
 }
 
 pub fn sol() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
+    let mut builder = BodyBuilder::unitary();
     let mut world = World::new(physics::G);
 
-    let mut sol = Body::new(1.989e30, 6.9634e8);
-    sol.move_to(0.0, 0.0, 0.0);
+    let sol = builder
+        .mass(Mass::kg(1.989e30).unwrap())
+        .radius(Radius::m(6.9634e8).unwrap())
+        .build();
 
-    let mut mercury = Body::new(3.301e23, 2.4397e6);
-    mercury.in_circular_orbit(physics::G, &sol, 5.79e10);
+    let mut mercury = builder
+        .mass(Mass::kg(3.301e23).unwrap())
+        .radius(Radius::m(2.4397e6).unwrap())
+        .build();
 
-    let mut venus = Body::new(4.8675e24, 6.0518e6);
+    let mut venus = builder
+        .mass(Mass::kg(4.8675e24).unwrap())
+        .radius(Radius::m(6.0518e6).unwrap())
+        .build();
+
+    let mut earth = builder
+        .mass(Mass::kg(5.972e24).unwrap())
+        .radius(Radius::m(6.37814e6).unwrap())
+        .build();
+
+    let mut mars = builder
+        .mass(Mass::kg(6.4171e23).unwrap())
+        .radius(Radius::m(3.3972e6).unwrap())
+        .build();
+
+    let mut jupiter = builder
+        .mass(Mass::kg(1.8986e27).unwrap())
+        .radius(Radius::m(7.1492e7).unwrap())
+        .build();
+
+    let mut saturn = builder
+        .mass(Mass::kg(5.6834e26).unwrap())
+        .radius(Radius::m(6.0268e7).unwrap())
+        .build();
+
+    let mut uranus = builder
+        .mass(Mass::kg(8.6810e25).unwrap())
+        .radius(Radius::m(2.5559e7).unwrap())
+        .build();
+
+    let mut neptune = builder
+        .mass(Mass::kg(1.0243e26).unwrap())
+        .radius(Radius::m(2.4746e7).unwrap())
+        .build();
+
+    let mut pluto = builder
+        .mass(Mass::kg(1.303e22).unwrap())
+        .radius(Radius::m(1.137e6).unwrap())
+        .build();
+
+    mercury.in_circular_orbit(physics::G, &sol, 5.791e10);
     venus.in_circular_orbit(physics::G, &sol, 1.082e11);
-
-    let mut earth = Body::new(5.972e24, 6.37814e6);
     earth.in_circular_orbit(physics::G, &sol, 1.496e11);
-
-    let mut mars = Body::new(6.4171e23, 3.3972e6);
     mars.in_circular_orbit(physics::G, &sol, 2.279e11);
-
-    let mut jupiter = Body::new(1.8986e27, 7.1492e7);
     jupiter.in_circular_orbit(physics::G, &sol, 7.783e11);
-
-    let mut saturn = Body::new(5.6834e26, 6.0268e7);
     saturn.in_circular_orbit(physics::G, &sol, 1.4336e12);
-
-    let mut uranus = Body::new(8.6810e25, 2.5559e7);
     uranus.in_circular_orbit(physics::G, &sol, 2.8710e12);
-
-    let mut neptune = Body::new(1.0243e26, 2.4746e7);
     neptune.in_circular_orbit(physics::G, &sol, 4.4954e12);
-
-    let mut pluto = Body::new(1.303e22, 1.137e6);
     pluto.in_circular_orbit(physics::G, &sol, 5.982e12);
 
     world.add_body(sol);

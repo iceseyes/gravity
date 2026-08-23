@@ -18,7 +18,7 @@ pub struct Body {
 }
 
 impl Body {
-    pub fn new(mass: f32, radius: f32) -> Self {
+    fn new(mass: f32, radius: f32) -> Self {
         Self {
             x: 0.0,
             y: 0.0,

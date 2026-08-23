@@ -148,7 +148,9 @@ fn update_viewport(p: &Body, min_x: &mut f32, max_x: &mut f32, min_y: &mut f32, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::assert_approx_eq;
+    use crate::physics::{Vec3, assert_approx_eq};
+    use crate::simulator::body::BodyBuilder;
+    use crate::simulator::dimension::Radius;
 
     #[test]
     fn test_world_size_without_bodies() {
@@ -163,8 +165,9 @@ mod tests {
 
     #[test]
     fn test_world_size_upon_adding_bodies() {
+        let mut builder = BodyBuilder::unitary();
         let mut w = World::new(physics::G);
-        w.add_body(Body::new(1.0, 1.0));
+        w.add_body(builder.build());
 
         // il corpo si trova nel punto (0, 0) con raggio 1.0
         let (x, y) = w.origin();
@@ -174,9 +177,12 @@ mod tests {
         assert_approx_eq(w.width(), 2.0);
         assert_approx_eq(w.height(), 2.0);
 
-        let mut b1 = Body::new(1.0, 2.0);
-        b1.move_to(10.0, 10.0, 10.0);
-        w.add_body(b1);
+        w.add_body(
+            builder
+                .radius(Radius::m(2.0).unwrap())
+                .position(Vec3::new(10.0, 10.0, 0.0))
+                .build(),
+        );
 
         // il secondo corpo si trova nel punto (10, 10) con raggio 2.0
         let (x, y) = w.origin();

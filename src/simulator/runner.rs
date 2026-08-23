@@ -80,14 +80,15 @@ impl Default for Runner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::{G, assert_approx_eq, assert_approx_eq_f64};
+    use crate::physics::{G, Vec3, assert_approx_eq, assert_approx_eq_f64};
     use crate::simulator::Body;
-    use crate::simulator::body::distance;
+    use crate::simulator::body::{BodyBuilder, distance};
+    use crate::simulator::dimension::{Mass, Radius};
 
     #[test]
     fn test_single_particle() {
         let mut w = World::default();
-        w.add_body(Body::new(1.0, 1.0));
+        w.add_body(BodyBuilder::unitary().build());
         let runner = Runner::new(w, 1.0);
         let p = &runner.world.bodies()[0];
 
@@ -96,15 +97,10 @@ mod tests {
 
     #[test]
     fn test_two_particles_attract_each_other() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(1.0, 1.0);
-
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(10.0, 0.0, 0.0);
-
+        let mut builder = BodyBuilder::unitary();
         let mut w = World::default();
-        w.add_body(p1);
-        w.add_body(p2);
+        w.add_body(builder.build());
+        w.add_body(builder.position(Vec3::new(10.0, 0.0, 0.0)).build());
 
         let mut runner = Runner::new(w, 1e-3);
 
@@ -126,9 +122,15 @@ mod tests {
     #[test]
     fn test_singularity() {
         // due corpi nello stesso punto: assumiamo che l'accelerazione sia zero.
+        let mut builder = BodyBuilder::unitary();
         let mut w = World::default();
-        w.add_body(Body::new(1.0, 1.0));
-        w.add_body(Body::new(1000.0, 10.0));
+        w.add_body(builder.build());
+        w.add_body(
+            builder
+                .mass(Mass::kg(1e3).unwrap())
+                .radius(Radius::m(10.0).unwrap())
+                .build(),
+        );
 
         let mut runner = Runner::new(w, 1e-3);
 
@@ -145,11 +147,9 @@ mod tests {
 
     macro_rules! two_body_test_system {
         ($property: ident $(, setup ($p1:ident, $p2:ident) $setup_func: block)?) => {{
-            let mut p1 = Body::new(1.0e10, 1.0);
-            let mut p2 = Body::new(1.0e10, 1.0);
-
-            p1.move_to(-10.0, 0.0, 0.0);
-            p2.move_to(10.0, 0.0, 0.0);
+            let mut builder = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap());
+            let mut p1 = builder.position(Vec3::new(-10.0, 0.0, 0.0)).build();
+            let mut p2 = builder.position(Vec3::new(10.0, 0.0, 0.0)).build();
 
             $((|$p1: &mut Body, $p2: &mut Body| $setup_func)(&mut p1, &mut p2);)?
 
@@ -201,8 +201,9 @@ mod tests {
 
     #[test]
     fn test_circular_orbit() {
-        let star = Body::new(1.0e30, 1.0e8);
-        let mut planet = Body::new(1.0e20, 1.0e3);
+        let star = BodyBuilder::new(Mass::kg(1e30).unwrap(), Radius::m(1.0e8).unwrap()).build();
+        let mut planet =
+            BodyBuilder::new(Mass::kg(1e20).unwrap(), Radius::m(1.0e3).unwrap()).build();
         let orbital_radius = 1.0e11_f64;
 
         planet.in_circular_orbit(G, &star, orbital_radius as f32);
