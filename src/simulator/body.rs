@@ -1,149 +1,125 @@
+use crate::physics::geometry::Sphere;
 use crate::physics::{Vec3, dynamic, gravity};
 use crate::simulator::dimension::{Mass, Radius};
 use rand::random_range;
-use std::f32;
 use std::f64;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct Body {
-    x: f32,
-    y: f32,
-    z: f32,
-    velocity_x: f32,
-    velocity_y: f32,
-    velocity_z: f32,
-    mass: f32,
-    radius: f32,
+    position: Vec3,
+    velocity: Vec3,
+    mass: f64,
+    radius: f64,
 }
 
 impl Body {
-    fn new(mass: f32, radius: f32) -> Self {
+    fn new(mass: f64, radius: f64) -> Self {
         Self {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            velocity_x: 0.0,
-            velocity_y: 0.0,
-            velocity_z: 0.0,
+            position: Vec3::zeros(),
+            velocity: Vec3::zeros(),
             mass,
             radius,
         }
     }
 
     pub fn random() -> Self {
-        const MIN_EXP_MASS: f32 = 1.0;
-        const MAX_EXP_MASS: f32 = 19.0;
-        const SPACE_RADIUS: f32 = 1e12;
-        const DENSITY: f32 = 1.0e3;
+        const MIN_EXP_MASS: f64 = 1.0;
+        const MAX_EXP_MASS: f64 = 19.0;
+        const SPACE_RADIUS: f64 = 1e12;
+        const DENSITY: f64 = 1.0e3;
 
         let exponent = random_range(MIN_EXP_MASS..=MAX_EXP_MASS);
-        let mass = 10.0_f32.powf(exponent);
-        let radius = (3.0 * mass / (4.0 * f32::consts::PI * DENSITY)).cbrt();
+        let mass = Mass::kg(10_f64.powf(exponent)).unwrap();
+        let radius = Radius::by_density(DENSITY).unwrap().get(mass);
+        let position = Vec3::new(
+            random_range(-SPACE_RADIUS..SPACE_RADIUS),
+            random_range(-SPACE_RADIUS..SPACE_RADIUS),
+            random_range(-SPACE_RADIUS..SPACE_RADIUS),
+        );
         Self {
-            x: random_range(-SPACE_RADIUS..SPACE_RADIUS),
-            y: random_range(-SPACE_RADIUS..SPACE_RADIUS),
-            z: random_range(-SPACE_RADIUS..SPACE_RADIUS),
-            velocity_x: 0.0,
-            velocity_y: 0.0,
-            velocity_z: 0.0,
-            mass,
+            position,
+            velocity: Vec3::zeros(),
+            mass: mass.get(),
             radius,
         }
     }
 
-    pub fn density(&self) -> f32 {
-        self.mass / self.radius.powi(3) * 4.0 / 3.0 / f32::consts::PI
+    pub fn density(&self) -> f64 {
+        let volume = Sphere::by_radius(self.radius).unwrap().volume();
+        self.mass / volume
     }
 
-    pub fn position(&self) -> (f32, f32, f32) {
-        (self.x, self.y, self.z)
+    pub fn position(&self) -> Vec3 {
+        self.position
     }
 
-    pub fn radius(&self) -> f32 {
+    pub fn radius(&self) -> f64 {
         self.radius
     }
 
-    pub fn speed(&self) -> f32 {
-        (self.velocity_x.powi(2) + self.velocity_y.powi(2) + self.velocity_z.powi(2)).sqrt()
+    pub fn speed(&self) -> f64 {
+        self.velocity.norm()
     }
 
-    pub fn velocity_direction(&self) -> (f32, f32, f32) {
+    pub fn velocity_direction(&self) -> Vec3 {
         let speed = self.speed();
         if speed.abs() < 1e-20 {
-            (0.0, 0.0, 0.0)
+            Vec3::zeros()
         } else {
-            (
-                self.velocity_x / speed,
-                self.velocity_y / speed,
-                self.velocity_z / speed,
-            )
+            self.velocity / speed
         }
     }
 
-    pub fn mass(&self) -> f32 {
+    pub fn mass(&self) -> f64 {
         self.mass
     }
 
-    pub fn move_to(&mut self, x: f32, y: f32, z: f32) {
-        self.x = x;
-        self.y = y;
-        self.z = z;
+    pub fn momentum(&self) -> Vec3 {
+        dynamic::momentum(self.mass, self.velocity)
     }
 
-    pub fn set_velocity(&mut self, vx: f32, vy: f32, vz: f32) {
-        self.velocity_x = vx;
-        self.velocity_y = vy;
-        self.velocity_z = vz;
+    pub fn move_to(&mut self, p: Vec3) {
+        self.position = p;
     }
 
-    pub fn velocity(&self) -> (f32, f32, f32) {
-        (self.velocity_x, self.velocity_y, self.velocity_z)
+    pub fn set_velocity(&mut self, v: Vec3) {
+        self.velocity = v;
+    }
+
+    pub fn velocity(&self) -> Vec3 {
+        self.velocity
     }
 
     pub fn kinetic_energy(&self) -> f64 {
-        dynamic::kinetic_energy(self.mass, self.velocity_x, self.velocity_y, self.velocity_z)
+        dynamic::kinetic_energy(self.mass, self.velocity)
     }
 
-    pub fn distance_to(&self, p2: &Body) -> (f32, f32, f32) {
-        let dx = self.x - p2.x;
-        let dy = self.y - p2.y;
-        let dz = self.z - p2.z;
-
-        (dx, dy, dz)
+    pub fn distance_to(&self, p2: &Body) -> Vec3 {
+        self.position - p2.position
     }
 
-    pub fn accelerate(&mut self, dt: f32, ax: f32, ay: f32, az: f32) {
-        self.velocity_x += dt * ax;
-        self.velocity_y += dt * ay;
-        self.velocity_z += dt * az;
+    pub fn accelerate(&mut self, dt: f64, a: Vec3) {
+        self.velocity += dt * a;
     }
 
-    pub fn update_position(&mut self, dt: f32) {
-        self.x += dt * self.velocity_x;
-        self.y += dt * self.velocity_y;
-        self.z += dt * self.velocity_z;
+    pub fn update_position(&mut self, dt: f64) {
+        self.position += dt * self.velocity;
     }
 
-    pub fn in_circular_orbit(&mut self, gravity_constant: f64, star: &Body, distance: f32) {
+    pub fn in_circular_orbit(&mut self, gravity_constant: f64, star: &Body, distance: f64) {
         let v_squared = gravity::orbital_squared_velocity(star.mass(), distance);
         let orbital_v = (gravity_constant * v_squared).sqrt();
-        self.move_to(star.x + distance, star.y, star.z);
-        self.set_velocity(
-            star.velocity_x,
-            star.velocity_y + orbital_v as f32,
-            star.velocity_z,
-        );
+        self.move_to(star.position + Vec3::new(distance, 0.0, 0.0));
+        self.set_velocity(star.velocity + Vec3::new(0.0, orbital_v, 0.0));
     }
 }
 
 impl Display for Body {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "[({}, {}, {}); r = {}m; m = {}kg; v = {}",
-            self.x,
-            self.y,
-            self.z,
+            "[{}; r = {}m; m = {}kg; v = {}",
+            self.position,
             self.radius,
             self.mass,
             self.speed()
@@ -179,19 +155,9 @@ impl BodyBuilder {
     }
 
     pub fn build(&self) -> Body {
-        let mut body = Body::new(self.mass.get() as f32, self.radius.get(self.mass) as f32);
-
-        body.move_to(
-            self.position.x as f32,
-            self.position.y as f32,
-            self.position.z as f32,
-        );
-
-        body.set_velocity(
-            self.velocity.x as f32,
-            self.velocity.y as f32,
-            self.velocity.z as f32,
-        );
+        let mut body = Body::new(self.mass.get(), self.radius.get(self.mass));
+        body.move_to(self.position);
+        body.set_velocity(self.velocity);
 
         body
     }
@@ -217,30 +183,22 @@ impl BodyBuilder {
     }
 }
 
-pub fn distance(p1: &Body, p2: &Body) -> f32 {
-    let (dx, dy, dz) = p1.distance_to(p2);
-    (dx * dx + dy * dy + dz * dz).sqrt()
+pub fn distance(p1: &Body, p2: &Body) -> f64 {
+    p1.distance_to(p2).norm()
 }
 
-pub fn total_momentum(bodies: &[Body]) -> (f64, f64, f64) {
-    bodies.iter().fold((0.0, 0.0, 0.0), |(px, py, pz), body| {
-        let (vx, vy, vz) = body.velocity();
-        let (mx, my, mz) = dynamic::momentum(body.mass(), vx, vy, vz);
-
-        (px + mx, py + my, pz + mz)
-    })
-}
-
-pub fn center_of_mass(bodies: &[Body]) -> (f64, f64, f64) {
-    let (m, bx, by, bz) = bodies
+pub fn total_momentum(bodies: &[Body]) -> Vec3 {
+    bodies
         .iter()
-        .fold((0.0, 0.0, 0.0, 0.0), |(m, px, py, pz), body| {
-            let (bx, by, bz) = dynamic::center_of_mass(body.mass, body.x, body.y, body.z);
+        .fold(Vec3::zeros(), |q, body| q + body.momentum())
+}
 
-            (m + body.mass() as f64, px + bx, py + by, pz + bz)
-        });
+pub fn center_of_mass(bodies: &[Body]) -> Vec3 {
+    let (m, c) = bodies.iter().fold((0.0, Vec3::zeros()), |(m, c), body| {
+        (m + body.mass(), c + body.position())
+    });
 
-    (bx / m, by / m, bz / m)
+    c / m
 }
 
 pub fn kinetic_energy(bodies: &[Body]) -> f64 {
@@ -251,8 +209,7 @@ pub fn potential_energy(gravity_constant: f64, bodies: &[Body]) -> f64 {
     gravity_constant
         * bodies.iter().enumerate().fold(0.0, |k, (index, body)| {
             bodies.iter().skip(index + 1).fold(k, |k, b2| {
-                let (dx, dy, dz) = body.distance_to(b2);
-                k + gravity::potential_energy(body.mass, b2.mass, dx, dy, dz)
+                k + gravity::potential_energy(body.mass, b2.mass, body.distance_to(b2))
             })
         })
 }
@@ -260,26 +217,28 @@ pub fn potential_energy(gravity_constant: f64, bodies: &[Body]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::{G, assert_approx_eq, assert_approx_eq_f64};
+    use crate::physics::{G, Vec3};
+    use approx::assert_abs_diff_eq;
 
     #[test]
     fn test_builder_builds_always_new_bodies() {
+        let ones = Vec3::new(1.0, 1.0, 1.0);
         let builder = BodyBuilder::unitary();
         let mut b1 = builder.build();
         let mut b2 = builder.build();
 
         assert_eq!(b1.mass(), b2.mass());
         assert_eq!(b1.radius(), b2.radius());
-        assert_eq!(distance(&b1, &b2), 0.0);
+        assert_abs_diff_eq!(distance(&b1, &b2), 0.0);
 
-        b1.move_to(1.0, 1.0, 1.0);
-        assert_eq!(distance(&b1, &b2), 1.7320508);
+        b1.move_to(ones);
+        assert_abs_diff_eq!(distance(&b1, &b2), 1.7320508, epsilon = 1e-7);
 
-        b2.move_to(1.0, 1.0, 1.0);
-        assert_eq!(distance(&b1, &b2), 0.0);
+        b2.move_to(ones);
+        assert_abs_diff_eq!(distance(&b1, &b2), 0.0);
 
-        b1.move_to(0.0, 0.0, 0.0);
-        assert_eq!(distance(&b1, &b2), 1.7320508);
+        b1.move_to(Vec3::zeros());
+        assert_abs_diff_eq!(distance(&b1, &b2), 1.7320508, epsilon = 1e-7);
     }
 
     #[test]
@@ -289,13 +248,13 @@ mod tests {
         let mut b2 = builder.build();
         assert!(distance(&b1, &b2).abs() < 0.0001);
 
-        b1.move_to(10.0, 10.0, 10.0);
+        b1.move_to(Vec3::new(10.0, 10.0, 10.0));
         assert!((distance(&b1, &b2) - 17.320509).abs() < 0.0001);
 
-        b2.move_to(20.0, 20.0, 20.0);
+        b2.move_to(Vec3::new(20.0, 20.0, 20.0));
         assert!((distance(&b1, &b2) - 17.320509).abs() < 0.0001);
 
-        b1.move_to(10.0, 20.0, 20.0);
+        b1.move_to(Vec3::new(10.0, 20.0, 20.0));
         assert!((distance(&b1, &b2) - 10.0).abs() < 0.0001);
     }
 
@@ -303,94 +262,78 @@ mod tests {
     fn test_acceleration_with_dt_one() {
         let mut p = Body::new(1.0, 1.0);
 
-        p.accelerate(1.0, 1.0, 2.0, 3.0);
+        p.accelerate(1.0, Vec3::new(1.0, 2.0, 3.0));
 
         // La posizione usa la velocità precedente, che era 0.
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_eq!(p.position, Vec3::zeros());
 
         // v = v + a * dt
-        assert_approx_eq(p.velocity_x, 1.0);
-        assert_approx_eq(p.velocity_y, 2.0);
-        assert_approx_eq(p.velocity_z, 3.0);
+        assert_eq!(p.velocity, Vec3::new(1.0, 2.0, 3.0));
     }
 
     #[test]
     fn test_acceleration_with_fractional_dt() {
         let mut p = Body::new(1.0, 1.0);
 
-        p.accelerate(0.5, 2.0, 4.0, 6.0);
+        p.accelerate(0.5, Vec3::new(2.0, 4.0, 6.0));
 
         // v = 0 + a * 0.5
-        assert_approx_eq(p.velocity_x, 1.0);
-        assert_approx_eq(p.velocity_y, 2.0);
-        assert_approx_eq(p.velocity_z, 3.0);
+        assert_eq!(p.velocity, Vec3::new(1.0, 2.0, 3.0));
 
         // La posizione rimane invariata al primo step.
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_eq!(p.position, Vec3::zeros());
     }
 
     #[test]
     fn test_multiple_updates() {
         let mut p = Body::new(1.0, 1.0);
 
-        p.accelerate(1.0, 1.0, 0.0, 0.0);
+        p.accelerate(1.0, Vec3::new(1.0, 0.0, 0.0));
 
         // Dopo il primo step:
         // position = 0
         // velocity = 1
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.velocity_x, 1.0);
+        assert_abs_diff_eq!(p.position, Vec3::zeros());
+        assert_abs_diff_eq!(p.velocity, Vec3::new(1.0, 0.0, 0.0));
 
         p.update_position(1.0);
-        p.accelerate(1.0, 1.0, 0.0, 0.0);
+        p.accelerate(1.0, Vec3::new(1.0, 0.0, 0.0));
 
         // Dopo il secondo step:
         // position = 0 + 1 * 1 = 1
         // velocity = 1 + 1 * 1 = 2
-        assert_approx_eq(p.x, 1.0);
-        assert_approx_eq(p.velocity_x, 2.0);
+        assert_abs_diff_eq!(p.position, Vec3::new(1.0, 0.0, 0.0));
+        assert_abs_diff_eq!(p.velocity, Vec3::new(2.0, 0.0, 0.0));
 
         p.update_position(1.0);
-        p.accelerate(1.0, 1.0, 0.0, 0.0);
+        p.accelerate(1.0, Vec3::new(1.0, 0.0, 0.0));
 
         // Dopo il terzo step:
         // position = 1 + 2 * 1 = 3
         // velocity = 2 + 1 * 1 = 3
-        assert_approx_eq(p.x, 3.0);
-        assert_approx_eq(p.velocity_x, 3.0);
+        assert_abs_diff_eq!(p.position, Vec3::new(3.0, 0.0, 0.0));
+        assert_abs_diff_eq!(p.velocity, Vec3::new(3.0, 0.0, 0.0));
     }
 
     #[test]
     fn test_zero_acceleration() {
-        let dt: f32 = 0.5;
+        let dt: f64 = 0.5;
         let mut p = Body::new(1.0, 1.0);
 
         // Impostiamo manualmente una velocità iniziale.
-        p.velocity_x = 10.0;
-        p.velocity_y = 5.0;
-        p.velocity_z = -2.0;
+        p.velocity = Vec3::new(10.0, 5.0, -2.0);
 
-        p.accelerate(dt, 0.0, 0.0, 0.0);
+        p.accelerate(dt, Vec3::zeros());
 
         // La velocità non cambia.
-        assert_approx_eq(p.velocity_x, 10.0);
-        assert_approx_eq(p.velocity_y, 5.0);
-        assert_approx_eq(p.velocity_z, -2.0);
+        assert_abs_diff_eq!(p.velocity, Vec3::new(10.0, 5.0, -2.0));
 
         // La posizione non cambia...
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_abs_diff_eq!(p.position, Vec3::zeros());
 
         // fino a che non l'aggiorno (applico la velocità)
         p.update_position(dt);
-        assert_approx_eq(p.x, 5.0);
-        assert_approx_eq(p.y, 2.5);
-        assert_approx_eq(p.z, -1.0);
+        assert_abs_diff_eq!(p.position, Vec3::new(5.0, 2.5, -1.0));
     }
 
     #[test]
@@ -398,37 +341,33 @@ mod tests {
         let mut p = Body::new(1.0, 1.0);
 
         let dt = 0.1;
-        let acceleration = 10.0;
+        let acceleration = Vec3::new(10.0, 0.0, 0.0);
 
         for _ in 0..10 {
-            p.accelerate(dt, acceleration, 0.0, 0.0);
+            p.accelerate(dt, acceleration);
         }
 
         // v = a * t = 10 * 1 = 10
-        assert_approx_eq(p.velocity_x, 10.0);
+        assert_abs_diff_eq!(p.velocity, Vec3::new(10.0, 0.0, 0.0));
     }
 
     #[test]
     fn test_acceleration_doesnt_change_position() {
         let mut p = Body::new(1.0, 1.0);
         let dt = 1.0;
-        let acceleration = 10.0;
+        let acceleration = Vec3::new(10.0, 0.0, 0.0);
 
         // applicare solo un'accelerazione
-        p.accelerate(dt, acceleration, 0.0, 0.0);
+        p.accelerate(dt, acceleration);
         // non cambia la posizione
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_abs_diff_eq!(p.position, Vec3::zeros());
 
         // ma aggiorna le velocità
-        assert_approx_eq(p.velocity_x, 10.0);
-        assert_approx_eq(p.velocity_y, 0.0);
-        assert_approx_eq(p.velocity_z, 0.0);
+        assert_abs_diff_eq!(p.velocity, Vec3::new(10.0, 0.0, 0.0));
 
         // se non aggiorno esplicitamente la posizione, non cambia
-        p.accelerate(dt, acceleration, 0.0, 0.0);
-        assert_approx_eq(p.x, 0.0);
+        p.accelerate(dt, acceleration);
+        assert_abs_diff_eq!(p.position, Vec3::zeros());
     }
 
     #[test]
@@ -439,35 +378,25 @@ mod tests {
         p.update_position(0.5);
 
         // non cambia la posizione
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_abs_diff_eq!(p.position, Vec3::zeros());
 
         p.update_position(0.5);
-        assert_approx_eq(p.x, 0.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_abs_diff_eq!(p.position, Vec3::zeros());
 
         // se impongo una velocità, la posizione cambia
-        p.set_velocity(10.0, 0.0, 0.0);
+        p.set_velocity(Vec3::new(10.0, 0.0, 0.0));
         p.update_position(0.5);
-        assert_approx_eq(p.x, 5.0);
-        assert_approx_eq(p.y, 0.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_abs_diff_eq!(p.position, Vec3::new(5.0, 0.0, 0.0));
 
         // in base al vettore velocità configurato
-        p.set_velocity(0.0, 10.0, 0.0);
+        p.set_velocity(Vec3::new(0.0, 10.0, 0.0));
         p.update_position(0.5);
-        assert_approx_eq(p.x, 5.0);
-        assert_approx_eq(p.y, 5.0);
-        assert_approx_eq(p.z, 0.0);
+        assert_abs_diff_eq!(p.position, Vec3::new(5.0, 5.0, 0.0));
 
         // ...e anche per l'asse z
-        p.set_velocity(0.0, 0.0, 10.0);
+        p.set_velocity(Vec3::new(0.0, 0.0, 10.0));
         p.update_position(0.5);
-        assert_approx_eq(p.x, 5.0);
-        assert_approx_eq(p.y, 5.0);
-        assert_approx_eq(p.z, 5.0);
+        assert_abs_diff_eq!(p.position, Vec3::new(5.0, 5.0, 5.0));
     }
 
     #[test]
@@ -479,11 +408,11 @@ mod tests {
 
         for _ in 0..10 {
             p.update_position(dt);
-            p.accelerate(dt, acceleration, 0.0, 0.0);
+            p.accelerate(dt, Vec3::new(acceleration, 0.0, 0.0));
         }
 
-        assert_approx_eq(p.velocity_x, 10.0);
-        assert_approx_eq(p.x, 4.5);
+        assert_abs_diff_eq!(p.velocity, Vec3::new(10.0, 0.0, 0.0), epsilon = 1e-2);
+        assert_abs_diff_eq!(p.position, Vec3::new(4.5, 0.0, 0.0), epsilon = 1e-2);
     }
 
     #[test]
@@ -492,20 +421,15 @@ mod tests {
             .velocity(Vec3::new(3.0, 4.0, 0.0))
             .build();
 
-        let (x, y, z) = p.velocity_direction();
-        assert_approx_eq(x, 0.6);
-        assert_approx_eq(y, 0.8);
-        assert_approx_eq(z, 0.0);
+        let v = p.velocity_direction();
+        assert_abs_diff_eq!(v, Vec3::new(0.6, 0.8, 0.0));
     }
 
     #[test]
     fn test_direction_when_stationary() {
         let p = Body::new(1.0, 1.0);
-        let (x, y, z) = p.velocity_direction();
-
-        assert_approx_eq(x, 0.0);
-        assert_approx_eq(y, 0.0);
-        assert_approx_eq(z, 0.0);
+        let v = p.velocity_direction();
+        assert_abs_diff_eq!(v, Vec3::zeros());
     }
 
     #[test]
@@ -515,7 +439,7 @@ mod tests {
         let b2 = builder.position(Vec3::new(10.0, 0.0, 0.0)).build();
         let energy = potential_energy(G, &[b1, b2]);
 
-        assert_approx_eq_f64(energy, -G / 10.0);
+        assert_abs_diff_eq!(energy, -G / 10.0);
     }
 
     #[test]
@@ -534,7 +458,6 @@ mod tests {
         ];
 
         let energy = potential_energy(1.0, &bodies);
-
-        assert_approx_eq_f64(energy, -0.95);
+        assert_abs_diff_eq!(energy, -0.95);
     }
 }

@@ -45,13 +45,13 @@ impl Camera2D {
         let (ox, oy) = world.origin();
         let ox = ox + world.width() / 2.0;
         let oy = oy + world.height() / 2.0;
-        let width = world.width().max(1.0) * (1.0 + self.padding);
-        let height = world.height().max(1.0) * (1.0 + self.padding);
-        let scale_x = viewport.width() / width;
-        let scale_y = viewport.height() / height;
+        let width = world.width().max(1.0) * (1.0 + self.padding as f64);
+        let height = world.height().max(1.0) * (1.0 + self.padding as f64);
+        let scale_x = viewport.width() as f64 / width;
+        let scale_y = viewport.height() as f64 / height;
 
-        self.center = Pos2::new(ox, oy);
-        self.set_scale(scale_x.min(scale_y));
+        self.center = Pos2::new(ox as f32, oy as f32);
+        self.set_scale(scale_x.min(scale_y) as f32);
     }
 
     pub fn point_to_screen(&self, viewport: &Rect, x: f32, y: f32, _z: f32) -> Pos2 {
@@ -88,7 +88,8 @@ impl Default for Camera2D {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gravity::physics::{Vec3, assert_approx_eq};
+    use approx::assert_abs_diff_eq;
+    use gravity::physics::Vec3;
     use gravity::simulator::body::BodyBuilder;
     use gravity::simulator::dimension::Radius;
     use gravity::simulator::world::World;
@@ -100,11 +101,10 @@ mod tests {
     #[test]
     fn test_origin() {
         let camera = Camera2D::default();
-
         let screen = camera.point_to_screen(&viewport(), 0.0, 0.0, 0.0);
 
-        assert_approx_eq(screen.x, 500.0);
-        assert_approx_eq(screen.y, 250.0);
+        assert_abs_diff_eq!(screen.x, 500.0);
+        assert_abs_diff_eq!(screen.y, 250.0);
     }
 
     #[test]
@@ -113,8 +113,8 @@ mod tests {
 
         let screen = camera.point_to_screen(&viewport(), 10.0, 0.0, 0.0);
 
-        assert_approx_eq(screen.x, 510.0);
-        assert_approx_eq(screen.y, 250.0);
+        assert_abs_diff_eq!(screen.x, 510.0);
+        assert_abs_diff_eq!(screen.y, 250.0);
     }
 
     #[test]
@@ -123,8 +123,8 @@ mod tests {
 
         let screen = camera.point_to_screen(&viewport(), -10.0, 0.0, 0.0);
 
-        assert_approx_eq(screen.x, 490.0);
-        assert_approx_eq(screen.y, 250.0);
+        assert_abs_diff_eq!(screen.x, 490.0);
+        assert_abs_diff_eq!(screen.y, 250.0);
     }
 
     #[test]
@@ -134,8 +134,8 @@ mod tests {
         let screen = camera.point_to_screen(&viewport(), 0.0, 10.0, 0.0);
 
         // World +Y corrisponde a screen -Y.
-        assert_approx_eq(screen.x, 500.0);
-        assert_approx_eq(screen.y, 240.0);
+        assert_abs_diff_eq!(screen.x, 500.0);
+        assert_abs_diff_eq!(screen.y, 240.0);
     }
 
     #[test]
@@ -144,8 +144,8 @@ mod tests {
 
         let screen = camera.point_to_screen(&viewport(), 0.0, -10.0, 0.0);
 
-        assert_approx_eq(screen.x, 500.0);
-        assert_approx_eq(screen.y, 260.0);
+        assert_abs_diff_eq!(screen.x, 500.0);
+        assert_abs_diff_eq!(screen.y, 260.0);
     }
 
     #[test]
@@ -154,8 +154,8 @@ mod tests {
 
         let screen = camera.point_to_screen(&viewport(), 10.0, 5.0, 0.0);
 
-        assert_approx_eq(screen.x, 600.0);
-        assert_approx_eq(screen.y, 200.0);
+        assert_abs_diff_eq!(screen.x, 600.0);
+        assert_abs_diff_eq!(screen.y, 200.0);
     }
 
     #[test]
@@ -165,8 +165,8 @@ mod tests {
         let screen = camera.point_to_screen(&viewport(), 100.0, 50.0, 0.0);
 
         // Il centro della camera deve essere il centro del viewport.
-        assert_approx_eq(screen.x, 500.0);
-        assert_approx_eq(screen.y, 250.0);
+        assert_abs_diff_eq!(screen.x, 500.0);
+        assert_abs_diff_eq!(screen.y, 250.0);
     }
 
     #[test]
@@ -177,8 +177,8 @@ mod tests {
 
         // +10m X -> +20px
         // +10m Y -> -20px sullo schermo
-        assert_approx_eq(screen.x, 520.0);
-        assert_approx_eq(screen.y, 230.0);
+        assert_abs_diff_eq!(screen.x, 520.0);
+        assert_abs_diff_eq!(screen.y, 230.0);
     }
 
     #[test]
@@ -189,8 +189,8 @@ mod tests {
 
         let p2 = camera.point_to_screen(&viewport(), 10.0, 20.0, 1000.0);
 
-        assert_approx_eq(p1.x, p2.x);
-        assert_approx_eq(p1.y, p2.y);
+        assert_abs_diff_eq!(p1.x, p2.x);
+        assert_abs_diff_eq!(p1.y, p2.y);
     }
 
     #[test]
@@ -201,18 +201,18 @@ mod tests {
 
         let point = camera.point_to_screen(&viewport(), 1.0, 0.0, 0.0);
 
-        assert_approx_eq(point.x - origin.x, 5.0);
-        assert_approx_eq(point.y - origin.y, 0.0);
+        assert_abs_diff_eq!(point.x - origin.x, 5.0);
+        assert_abs_diff_eq!(point.y - origin.y, 0.0);
     }
 
     #[test]
     fn test_new() {
         let camera = Camera2D::new(Pos2::new(10.0, 20.0), 5.0);
 
-        assert_approx_eq(camera.center.x, 10.0);
-        assert_approx_eq(camera.center.y, 20.0);
-        assert_approx_eq(camera.scale, 5.0);
-        assert_approx_eq(camera.padding, 0.1);
+        assert_abs_diff_eq!(camera.center.x, 10.0);
+        assert_abs_diff_eq!(camera.center.y, 20.0);
+        assert_abs_diff_eq!(camera.scale, 5.0);
+        assert_abs_diff_eq!(camera.padding, 0.1);
     }
 
     #[test]
@@ -230,8 +230,8 @@ mod tests {
         //
         // x = (-101 + 101) / 2 = 0
         // y = (-51 + 51) / 2 = 0
-        assert_approx_eq(camera.center.x, 0.0);
-        assert_approx_eq(camera.center.y, 0.0);
+        assert_abs_diff_eq!(camera.center.x, 0.0);
+        assert_abs_diff_eq!(camera.center.y, 0.0);
     }
 
     #[test]
@@ -251,8 +251,8 @@ mod tests {
         // y = 199 .. 401
         //
         // centro = (200, 300)
-        assert_approx_eq(camera.center.x, 200.0);
-        assert_approx_eq(camera.center.y, 300.0);
+        assert_abs_diff_eq!(camera.center.x, 200.0);
+        assert_abs_diff_eq!(camera.center.y, 300.0);
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod tests {
 
         let expected_scale = scale_x.min(scale_y);
 
-        assert_approx_eq(camera.scale, expected_scale);
+        assert_abs_diff_eq!(camera.scale, expected_scale);
     }
 
     #[test]
@@ -305,7 +305,7 @@ mod tests {
         // viene scelta scale_y.
         let expected_scale = 500.0 / 110.0;
 
-        assert_approx_eq(camera.scale, expected_scale);
+        assert_abs_diff_eq!(camera.scale, expected_scale);
     }
 
     #[test]
@@ -324,7 +324,7 @@ mod tests {
         let scale_y = 500.0 / (100.0 * 1.1);
 
         // scale_y deve essere quella utilizzata.
-        assert_approx_eq(camera.scale, scale_y);
+        assert_abs_diff_eq!(camera.scale, scale_y);
         assert!(
             camera.scale < scale_x,
             "scale = {}, scale_x = {}, scale_y = {}",
@@ -359,9 +359,9 @@ mod tests {
         // scale = min(1000/2.2, 500/2.2)
         let expected_scale = 500.0 / 2.2;
 
-        assert_approx_eq(camera.center.x, 0.0);
-        assert_approx_eq(camera.center.y, 0.0);
-        assert_approx_eq(camera.scale, expected_scale);
+        assert_abs_diff_eq!(camera.center.x, 0.0);
+        assert_abs_diff_eq!(camera.center.y, 0.0);
+        assert_abs_diff_eq!(camera.scale, expected_scale);
     }
 
     #[test]
@@ -372,9 +372,9 @@ mod tests {
         let screen = camera.point_to_screen(&viewport, original.0, original.1, original.2);
         let result = camera.point_to_world(&viewport, screen);
 
-        assert_approx_eq(result.0, original.0);
-        assert_approx_eq(result.1, original.1);
-        assert_approx_eq(result.2, original.2);
+        assert_abs_diff_eq!(result.0, original.0);
+        assert_abs_diff_eq!(result.1, original.1);
+        assert_abs_diff_eq!(result.2, original.2);
     }
 
     #[test]
@@ -391,10 +391,10 @@ mod tests {
 
         let after = camera.point_to_world(&viewport, mouse);
 
-        assert_approx_eq(before.0, after.0);
-        assert_approx_eq(before.1, after.1);
+        assert_abs_diff_eq!(before.0, after.0);
+        assert_abs_diff_eq!(before.1, after.1);
 
-        assert_approx_eq(camera.scale, 20.0);
+        assert_abs_diff_eq!(camera.scale, 20.0);
     }
 
     #[test]
@@ -411,7 +411,7 @@ mod tests {
 
         let after = camera.point_to_world(&viewport, mouse);
 
-        assert_approx_eq(before.0, after.0);
-        assert_approx_eq(before.1, after.1);
+        assert_abs_diff_eq!(before.0, after.0);
+        assert_abs_diff_eq!(before.1, after.1);
     }
 }

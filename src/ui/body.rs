@@ -4,18 +4,18 @@ use gravity::simulator::Body;
 
 pub(crate) fn draw_body(body: &Body, camera: &Camera2D, painter: &egui::Painter, rect: egui::Rect) {
     let speed = body.speed();
-    let (x, y, z) = body.position();
-    let (vx, vy, _) = body.velocity_direction();
+    let p = body.position();
+    let v = body.velocity_direction();
     let radius = body.radius();
-    let position = camera.point_to_screen(&rect, x, y, z);
-    let speed_line_length = radius + camera.length_to_world(30.0);
+    let position = camera.point_to_screen(&rect, p.x as f32, p.y as f32, p.z as f32);
+    let speed_line_length = radius + camera.length_to_world(30.0) as f64;
     let velocity = camera.point_to_screen(
         &rect,
-        x + vx * speed_line_length,
-        y + vy * speed_line_length,
-        z,
+        (p.x + v.x * speed_line_length) as f32,
+        (p.y + v.y * speed_line_length) as f32,
+        p.z as f32,
     );
-    let radius = camera.length_to_screen(body.radius());
+    let radius = camera.length_to_screen(body.radius() as f32);
 
     painter.circle_filled(position, radius, egui::Color32::WHITE);
     painter.text(

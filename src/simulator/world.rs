@@ -1,4 +1,5 @@
 use crate::physics;
+use crate::physics::Vec3;
 use crate::simulator::body::{
     Body, center_of_mass, kinetic_energy, potential_energy, total_momentum,
 };
@@ -9,18 +10,18 @@ pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
 pub struct World {
     gravity_constant: f64,
     bodies: Vec<Body>,
-    min_x: f32,
-    max_x: f32,
-    min_y: f32,
-    max_y: f32,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
 }
 
 impl World {
     pub fn new(gravity_constant: f64) -> Self {
-        let min_x = f32::INFINITY;
-        let max_x = f32::NEG_INFINITY;
-        let min_y = f32::INFINITY;
-        let max_y = f32::NEG_INFINITY;
+        let min_x = f64::INFINITY;
+        let max_x = f64::NEG_INFINITY;
+        let min_y = f64::INFINITY;
+        let max_y = f64::NEG_INFINITY;
 
         Self {
             gravity_constant,
@@ -53,7 +54,7 @@ impl World {
         self.bodies.push(p);
     }
 
-    pub fn origin(&self) -> (f32, f32) {
+    pub fn origin(&self) -> (f64, f64) {
         if self.bodies.is_empty() {
             (0.0, 0.0)
         } else {
@@ -61,7 +62,7 @@ impl World {
         }
     }
 
-    pub fn width(&self) -> f32 {
+    pub fn width(&self) -> f64 {
         if self.bodies.is_empty() {
             0.0
         } else {
@@ -70,7 +71,7 @@ impl World {
         }
     }
 
-    pub fn height(&self) -> f32 {
+    pub fn height(&self) -> f64 {
         if self.bodies.is_empty() {
             0.0
         } else {
@@ -92,11 +93,11 @@ impl World {
         &mut self.bodies
     }
 
-    pub fn total_momentum(&self) -> (f64, f64, f64) {
+    pub fn total_momentum(&self) -> Vec3 {
         total_momentum(&self.bodies)
     }
 
-    pub fn center_of_mass(&self) -> (f64, f64, f64) {
+    pub fn center_of_mass(&self) -> Vec3 {
         center_of_mass(&self.bodies)
     }
 
@@ -113,10 +114,10 @@ impl World {
     }
 
     pub fn compute_world_size(&mut self) {
-        self.min_x = f32::INFINITY;
-        self.max_x = f32::NEG_INFINITY;
-        self.min_y = f32::INFINITY;
-        self.max_y = f32::NEG_INFINITY;
+        self.min_x = f64::INFINITY;
+        self.max_x = f64::NEG_INFINITY;
+        self.min_y = f64::INFINITY;
+        self.max_y = f64::NEG_INFINITY;
 
         self.bodies.iter().for_each(|p| {
             update_viewport(
@@ -136,21 +137,29 @@ impl Default for World {
     }
 }
 
-fn update_viewport(p: &Body, min_x: &mut f32, max_x: &mut f32, min_y: &mut f32, max_y: &mut f32) {
-    let (x, y, _) = p.position();
+fn update_viewport(
+    body: &Body,
+    min_x: &mut f64,
+    max_x: &mut f64,
+    min_y: &mut f64,
+    max_y: &mut f64,
+) {
+    let p = body.position();
+    let r = body.radius();
 
-    *min_x = min_x.min(x - p.radius());
-    *max_x = max_x.max(x + p.radius());
-    *min_y = min_y.min(y - p.radius());
-    *max_y = max_y.max(y + p.radius());
+    *min_x = min_x.min(p.x - r);
+    *max_x = max_x.max(p.x + r);
+    *min_y = min_y.min(p.y - r);
+    *max_y = max_y.max(p.y + r);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::{Vec3, assert_approx_eq};
+    use crate::physics::Vec3;
     use crate::simulator::body::BodyBuilder;
     use crate::simulator::dimension::Radius;
+    use approx::assert_abs_diff_eq;
 
     #[test]
     fn test_world_size_without_bodies() {
@@ -172,10 +181,10 @@ mod tests {
         // il corpo si trova nel punto (0, 0) con raggio 1.0
         let (x, y) = w.origin();
 
-        assert_approx_eq(x, -1.0);
-        assert_approx_eq(y, -1.0);
-        assert_approx_eq(w.width(), 2.0);
-        assert_approx_eq(w.height(), 2.0);
+        assert_abs_diff_eq!(x, -1.0);
+        assert_abs_diff_eq!(y, -1.0);
+        assert_abs_diff_eq!(w.width(), 2.0);
+        assert_abs_diff_eq!(w.height(), 2.0);
 
         w.add_body(
             builder
@@ -189,9 +198,9 @@ mod tests {
 
         // l'origin non cambia, ma la larghezza e l'altezza aumentano perché
         // variano da -1 (0 - 1) a 12 (10 + 2)
-        assert_approx_eq(x, -1.0);
-        assert_approx_eq(y, -1.0);
-        assert_approx_eq(w.width(), 13.0);
-        assert_approx_eq(w.height(), 13.0);
+        assert_abs_diff_eq!(x, -1.0);
+        assert_abs_diff_eq!(y, -1.0);
+        assert_abs_diff_eq!(w.width(), 13.0);
+        assert_abs_diff_eq!(w.height(), 13.0);
     }
 }
