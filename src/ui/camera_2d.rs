@@ -217,10 +217,17 @@ mod tests {
 
     #[test]
     fn test_fit_center() {
-        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(builder.position(Vec3::new(-100.0, -50.0, 0.0)).build());
-        world.add_body(builder.position(Vec3::new(100.0, 50.0, 0.0)).build());
+        world.add_body(
+            BodyBuilder::unitary()
+                .position(Vec3::new(-100.0, -50.0, 0.0))
+                .build(),
+        );
+        world.add_body(
+            BodyBuilder::unitary()
+                .position(Vec3::new(100.0, 50.0, 0.0))
+                .build(),
+        );
 
         let mut camera = Camera2D::default();
 
@@ -236,10 +243,17 @@ mod tests {
 
     #[test]
     fn test_fit_center_with_offset_world() {
-        let mut builder = BodyBuilder::unitary();
         let mut world = World::default();
-        world.add_body(builder.position(Vec3::new(100.0, 200.0, 0.0)).build());
-        world.add_body(builder.position(Vec3::new(300.0, 400.0, 0.0)).build());
+        world.add_body(
+            BodyBuilder::unitary()
+                .position(Vec3::new(100.0, 200.0, 0.0))
+                .build(),
+        );
+        world.add_body(
+            BodyBuilder::unitary()
+                .position(Vec3::new(300.0, 400.0, 0.0))
+                .build(),
+        );
 
         let mut camera = Camera2D::default();
 
@@ -255,14 +269,39 @@ mod tests {
         assert_abs_diff_eq!(camera.center.y, 300.0);
     }
 
-    #[test]
-    fn test_fit_uses_smallest_scale() {
-        let mut builder = BodyBuilder::unitary();
+    fn fit_world_fixture_1() -> World {
         let mut world = World::default();
 
-        builder.radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap());
-        world.add_body(builder.position(Vec3::new(0.0, 0.0, 0.0)).build());
-        world.add_body(builder.position(Vec3::new(1000.0, 100.0, 0.0)).build());
+        world.add_body(
+            BodyBuilder::unitary()
+                .radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap())
+                .position(Vec3::new(0.0, 0.0, 0.0))
+                .build(),
+        );
+        world
+    }
+    fn fit_world_fixture_2() -> World {
+        let mut world = fit_world_fixture_1();
+
+        world.add_body(
+            BodyBuilder::unitary()
+                .radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap())
+                .position(Vec3::new(100.0, 100.0, 0.0))
+                .build(),
+        );
+
+        world
+    }
+
+    #[test]
+    fn test_fit_uses_smallest_scale() {
+        let mut world = fit_world_fixture_1();
+        world.add_body(
+            BodyBuilder::unitary()
+                .radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap())
+                .position(Vec3::new(1000.0, 100.0, 0.0))
+                .build(),
+        );
 
         let mut camera = Camera2D::default();
 
@@ -281,13 +320,7 @@ mod tests {
 
     #[test]
     fn test_fit_with_padding() {
-        let mut builder = BodyBuilder::unitary();
-        let mut world = World::default();
-
-        builder.radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap());
-        world.add_body(builder.position(Vec3::new(0.0, 0.0, 0.0)).build());
-        world.add_body(builder.position(Vec3::new(100.0, 100.0, 0.0)).build());
-
+        let world = fit_world_fixture_2();
         let mut camera = Camera2D::new(Pos2::ZERO, 1.0);
 
         camera.fit(&viewport(), &world);
@@ -310,12 +343,7 @@ mod tests {
 
     #[test]
     fn test_fit_does_not_distort_aspect_ratio() {
-        let mut builder = BodyBuilder::unitary();
-        let mut world = World::default();
-        builder.radius(Radius::m(f64::MIN_POSITIVE.cbrt()).unwrap());
-        world.add_body(builder.position(Vec3::new(0.0, 0.0, 0.0)).build());
-        world.add_body(builder.position(Vec3::new(100.0, 100.0, 0.0)).build());
-
+        let world = fit_world_fixture_2();
         let mut camera = Camera2D::default();
 
         camera.fit(&viewport(), &world);

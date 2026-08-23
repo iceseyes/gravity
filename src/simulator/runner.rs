@@ -93,10 +93,13 @@ mod tests {
 
     #[test]
     fn test_two_particles_attract_each_other() {
-        let mut builder = BodyBuilder::unitary();
         let mut w = World::default();
-        w.add_body(builder.build());
-        w.add_body(builder.position(Vec3::new(10.0, 0.0, 0.0)).build());
+        w.add_body(BodyBuilder::unitary().build());
+        w.add_body(
+            BodyBuilder::unitary()
+                .position(Vec3::new(10.0, 0.0, 0.0))
+                .build(),
+        );
 
         let mut runner = Runner::new(w, 1e-3);
 
@@ -113,11 +116,10 @@ mod tests {
     #[test]
     fn test_singularity() {
         // due corpi nello stesso punto: assumiamo che l'accelerazione sia zero.
-        let mut builder = BodyBuilder::unitary();
         let mut w = World::default();
-        w.add_body(builder.build());
+        w.add_body(BodyBuilder::unitary().build());
         w.add_body(
-            builder
+            BodyBuilder::unitary()
                 .mass(Mass::kg(1e3).unwrap())
                 .radius(Radius::m(10.0).unwrap())
                 .build(),
@@ -141,9 +143,8 @@ mod tests {
             two_body_test_system!($property, setup (_p1, _p2) {})
         };
         ($property: ident, setup ($p1:ident, $p2:ident) $setup_func: block) => {{
-            let mut builder = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap());
-            let mut p1 = builder.position(Vec3::new(-10.0, 0.0, 0.0)).build();
-            let mut p2 = builder.position(Vec3::new(10.0, 0.0, 0.0)).build();
+            let mut p1 = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap()).position(Vec3::new(-10.0, 0.0, 0.0)).build();
+            let mut p2 = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap()).position(Vec3::new(10.0, 0.0, 0.0)).build();
 
             (|$p1: &mut Body, $p2: &mut Body| $setup_func)(&mut p1, &mut p2);
 

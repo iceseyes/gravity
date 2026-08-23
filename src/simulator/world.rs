@@ -174,9 +174,8 @@ mod tests {
 
     #[test]
     fn test_world_size_upon_adding_bodies() {
-        let mut builder = BodyBuilder::unitary();
         let mut w = World::new(physics::G);
-        w.add_body(builder.build());
+        w.add_body(BodyBuilder::unitary().build());
 
         // il corpo si trova nel punto (0, 0) con raggio 1.0
         let (x, y) = w.origin();
@@ -187,7 +186,7 @@ mod tests {
         assert_abs_diff_eq!(w.height(), 2.0);
 
         w.add_body(
-            builder
+            BodyBuilder::unitary()
                 .radius(Radius::m(2.0).unwrap())
                 .position(Vec3::new(10.0, 10.0, 0.0))
                 .build(),

@@ -162,22 +162,22 @@ impl BodyBuilder {
         body
     }
 
-    pub fn mass(&mut self, mass: Mass) -> &mut Self {
+    pub fn mass(mut self, mass: Mass) -> Self {
         self.mass = mass;
         self
     }
 
-    pub fn radius(&mut self, radius: Radius) -> &mut Self {
+    pub fn radius(mut self, radius: Radius) -> Self {
         self.radius = radius;
         self
     }
 
-    pub fn position(&mut self, position: Vec3) -> &mut Self {
+    pub fn position(mut self, position: Vec3) -> Self {
         self.position = position;
         self
     }
 
-    pub fn velocity(&mut self, velocity: Vec3) -> &mut Self {
+    pub fn velocity(mut self, velocity: Vec3) -> Self {
         self.velocity = velocity;
         self
     }
@@ -434,9 +434,12 @@ mod tests {
 
     #[test]
     fn test_potential_energy_two_bodies() {
-        let mut builder = BodyBuilder::unitary();
-        let b1 = builder.position(Vec3::new(0.0, 0.0, 0.0)).build();
-        let b2 = builder.position(Vec3::new(10.0, 0.0, 0.0)).build();
+        let b1 = BodyBuilder::unitary()
+            .position(Vec3::new(0.0, 0.0, 0.0))
+            .build();
+        let b2 = BodyBuilder::unitary()
+            .position(Vec3::new(10.0, 0.0, 0.0))
+            .build();
         let energy = potential_energy(G, &[b1, b2]);
 
         assert_abs_diff_eq!(energy, -G / 10.0);
@@ -444,14 +447,15 @@ mod tests {
 
     #[test]
     fn test_potential_energy_three_bodies() {
-        let mut builder = BodyBuilder::unitary();
         let bodies = [
-            builder.position(Vec3::new(0.0, 0.0, 0.0)).build(),
-            builder
+            BodyBuilder::unitary()
+                .position(Vec3::new(0.0, 0.0, 0.0))
+                .build(),
+            BodyBuilder::unitary()
                 .mass(Mass::kg(2.0).unwrap())
                 .position(Vec3::new(10.0, 0.0, 0.0))
                 .build(),
-            builder
+            BodyBuilder::unitary()
                 .mass(Mass::kg(3.0).unwrap())
                 .position(Vec3::new(20.0, 0.0, 0.0))
                 .build(),

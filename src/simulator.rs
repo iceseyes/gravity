@@ -28,18 +28,22 @@ pub fn random(n_bodies: usize) -> (JoinHandle<()>, mpsc::Sender<SimulationComman
 
 pub fn three_bodies_aligned() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     let mut world = World::default();
-    let mut builder = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap());
 
-    world.add_body(builder.position(Vec3::new(60.0, 60.0, 0.0)).build());
     world.add_body(
-        builder
+        BodyBuilder::unitary()
+            .mass(Mass::kg(1e10).unwrap())
+            .position(Vec3::new(60.0, 60.0, 0.0))
+            .build(),
+    );
+    world.add_body(
+        BodyBuilder::unitary()
             .mass(Mass::kg(9_000_000_000_000.0).unwrap())
             .radius(Radius::m(9.0).unwrap())
             .position(Vec3::new(50.0, 50.0, 0.0))
             .build(),
     );
     world.add_body(
-        builder
+        BodyBuilder::unitary()
             .mass(Mass::kg(2_000_000_000.0).unwrap())
             .radius(Radius::m(2.0).unwrap())
             .position(Vec3::new(0.0, 0.0, 0.0))
@@ -50,15 +54,14 @@ pub fn three_bodies_aligned() -> (JoinHandle<()>, Sender<SimulationCommand>, Sna
 }
 
 pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
-    let mut builder = BodyBuilder::unitary();
     let mut world = World::new(physics::G);
 
-    let star = builder
+    let star = BodyBuilder::unitary()
         .mass(Mass::kg(1.0e30).unwrap())
         .radius(Radius::m(6.9634e8).unwrap())
         .build();
 
-    let mut planet = builder
+    let mut planet = BodyBuilder::unitary()
         .mass(Mass::kg(1.0e20).unwrap())
         .radius(Radius::m(6.37814e6).unwrap())
         .build();
@@ -72,55 +75,54 @@ pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
 }
 
 pub fn sol() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
-    let mut builder = BodyBuilder::unitary();
     let mut world = World::new(physics::G);
 
-    let sol = builder
+    let sol = BodyBuilder::unitary()
         .mass(Mass::kg(1.989e30).unwrap())
         .radius(Radius::m(6.9634e8).unwrap())
         .build();
 
-    let mut mercury = builder
+    let mut mercury = BodyBuilder::unitary()
         .mass(Mass::kg(3.301e23).unwrap())
         .radius(Radius::m(2.4397e6).unwrap())
         .build();
 
-    let mut venus = builder
+    let mut venus = BodyBuilder::unitary()
         .mass(Mass::kg(4.8675e24).unwrap())
         .radius(Radius::m(6.0518e6).unwrap())
         .build();
 
-    let mut earth = builder
+    let mut earth = BodyBuilder::unitary()
         .mass(Mass::kg(5.972e24).unwrap())
         .radius(Radius::m(6.37814e6).unwrap())
         .build();
 
-    let mut mars = builder
+    let mut mars = BodyBuilder::unitary()
         .mass(Mass::kg(6.4171e23).unwrap())
         .radius(Radius::m(3.3972e6).unwrap())
         .build();
 
-    let mut jupiter = builder
+    let mut jupiter = BodyBuilder::unitary()
         .mass(Mass::kg(1.8986e27).unwrap())
         .radius(Radius::m(7.1492e7).unwrap())
         .build();
 
-    let mut saturn = builder
+    let mut saturn = BodyBuilder::unitary()
         .mass(Mass::kg(5.6834e26).unwrap())
         .radius(Radius::m(6.0268e7).unwrap())
         .build();
 
-    let mut uranus = builder
+    let mut uranus = BodyBuilder::unitary()
         .mass(Mass::kg(8.6810e25).unwrap())
         .radius(Radius::m(2.5559e7).unwrap())
         .build();
 
-    let mut neptune = builder
+    let mut neptune = BodyBuilder::unitary()
         .mass(Mass::kg(1.0243e26).unwrap())
         .radius(Radius::m(2.4746e7).unwrap())
         .build();
 
-    let mut pluto = builder
+    let mut pluto = BodyBuilder::unitary()
         .mass(Mass::kg(1.303e22).unwrap())
         .radius(Radius::m(1.137e6).unwrap())
         .build();
