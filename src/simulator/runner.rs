@@ -146,12 +146,15 @@ mod tests {
     }
 
     macro_rules! two_body_test_system {
-        ($property: ident $(, setup ($p1:ident, $p2:ident) $setup_func: block)?) => {{
+        ($property: ident) => {
+            two_body_test_system!($property, setup (_p1, _p2) {})
+        };
+        ($property: ident, setup ($p1:ident, $p2:ident) $setup_func: block) => {{
             let mut builder = BodyBuilder::new(Mass::kg(1e10).unwrap(), Radius::m(1.0).unwrap());
             let mut p1 = builder.position(Vec3::new(-10.0, 0.0, 0.0)).build();
             let mut p2 = builder.position(Vec3::new(10.0, 0.0, 0.0)).build();
 
-            $((|$p1: &mut Body, $p2: &mut Body| $setup_func)(&mut p1, &mut p2);)?
+            (|$p1: &mut Body, $p2: &mut Body| $setup_func)(&mut p1, &mut p2);
 
             let mut world = World::default();
             world.add_body(p1);
