@@ -1,5 +1,6 @@
 use crate::physics::geometry::Sphere;
 
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Mass(f64);
 
 impl Mass {
@@ -20,6 +21,7 @@ impl Mass {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Radius(RadiusProvider, f64);
 
 impl Radius {
@@ -53,6 +55,7 @@ impl Radius {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 enum RadiusProvider {
     Absolute,
     Density,

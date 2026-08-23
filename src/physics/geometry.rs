@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use std::f64::consts::PI;
 
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Sphere(f64);
 
 impl Sphere {

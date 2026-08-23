@@ -1,6 +1,7 @@
-use crate::physics::{dynamic, gravity};
+use crate::physics::{Vec3, dynamic, gravity};
+use crate::simulator::dimension::{Mass, Radius};
 use rand::random_range;
-use std::f32::consts::PI;
+use std::f32;
 use std::f64;
 use std::fmt::{Display, Formatter};
 
@@ -38,7 +39,7 @@ impl Body {
 
         let exponent = random_range(MIN_EXP_MASS..=MAX_EXP_MASS);
         let mass = 10.0_f32.powf(exponent);
-        let radius = (3.0 * mass / (4.0 * PI * DENSITY)).cbrt();
+        let radius = (3.0 * mass / (4.0 * f32::consts::PI * DENSITY)).cbrt();
         Self {
             x: random_range(-SPACE_RADIUS..SPACE_RADIUS),
             y: random_range(-SPACE_RADIUS..SPACE_RADIUS),
@@ -49,6 +50,10 @@ impl Body {
             mass,
             radius,
         }
+    }
+
+    pub fn density(&self) -> f32 {
+        self.mass / self.radius.powi(3) * 4.0 / 3.0 / f32::consts::PI
     }
 
     pub fn position(&self) -> (f32, f32, f32) {
@@ -146,6 +151,72 @@ impl Display for Body {
     }
 }
 
+#[derive(Debug)]
+pub struct BodyBuilder {
+    mass: Mass,
+    radius: Radius,
+    position: Vec3,
+    velocity: Vec3,
+}
+
+impl BodyBuilder {
+    pub fn new(mass: Mass, radius: Radius) -> Self {
+        Self {
+            mass,
+            radius,
+            position: Vec3::default(),
+            velocity: Vec3::default(),
+        }
+    }
+
+    pub fn unitary() -> Self {
+        Self {
+            mass: Mass::kg(1.0).unwrap(),
+            radius: Radius::m(1.0).unwrap(),
+            position: Vec3::default(),
+            velocity: Vec3::default(),
+        }
+    }
+
+    pub fn build(&self) -> Body {
+        let mut body = Body::new(self.mass.get() as f32, self.radius.get(self.mass) as f32);
+
+        body.move_to(
+            self.position.x as f32,
+            self.position.y as f32,
+            self.position.z as f32,
+        );
+
+        body.set_velocity(
+            self.velocity.x as f32,
+            self.velocity.y as f32,
+            self.velocity.z as f32,
+        );
+
+        body
+    }
+
+    pub fn mass(&mut self, mass: Mass) -> &mut Self {
+        self.mass = mass;
+        self
+    }
+
+    pub fn radius(&mut self, radius: Radius) -> &mut Self {
+        self.radius = radius;
+        self
+    }
+
+    pub fn position(&mut self, position: Vec3) -> &mut Self {
+        self.position = position;
+        self
+    }
+
+    pub fn velocity(&mut self, velocity: Vec3) -> &mut Self {
+        self.velocity = velocity;
+        self
+    }
+}
+
 pub fn distance(p1: &Body, p2: &Body) -> f32 {
     let (dx, dy, dz) = p1.distance_to(p2);
     (dx * dx + dy * dy + dz * dz).sqrt()
@@ -192,19 +263,40 @@ mod tests {
     use crate::physics::{G, assert_approx_eq, assert_approx_eq_f64};
 
     #[test]
+    fn test_builder_builds_always_new_bodies() {
+        let builder = BodyBuilder::unitary();
+        let mut b1 = builder.build();
+        let mut b2 = builder.build();
+
+        assert_eq!(b1.mass(), b2.mass());
+        assert_eq!(b1.radius(), b2.radius());
+        assert_eq!(distance(&b1, &b2), 0.0);
+
+        b1.move_to(1.0, 1.0, 1.0);
+        assert_eq!(distance(&b1, &b2), 1.7320508);
+
+        b2.move_to(1.0, 1.0, 1.0);
+        assert_eq!(distance(&b1, &b2), 0.0);
+
+        b1.move_to(0.0, 0.0, 0.0);
+        assert_eq!(distance(&b1, &b2), 1.7320508);
+    }
+
+    #[test]
     fn test_distance() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(1.0, 1.0);
-        assert!(distance(&p1, &p2).abs() < 0.0001);
+        let builder = BodyBuilder::unitary();
+        let mut b1 = builder.build();
+        let mut b2 = builder.build();
+        assert!(distance(&b1, &b2).abs() < 0.0001);
 
-        p1.move_to(10.0, 10.0, 10.0);
-        assert!((distance(&p1, &p2) - 17.320509).abs() < 0.0001);
+        b1.move_to(10.0, 10.0, 10.0);
+        assert!((distance(&b1, &b2) - 17.320509).abs() < 0.0001);
 
-        p2.move_to(20.0, 20.0, 20.0);
-        assert!((distance(&p1, &p2) - 17.320509).abs() < 0.0001);
+        b2.move_to(20.0, 20.0, 20.0);
+        assert!((distance(&b1, &b2) - 17.320509).abs() < 0.0001);
 
-        p1.move_to(10.0, 20.0, 20.0);
-        assert!((distance(&p1, &p2) - 10.0).abs() < 0.0001);
+        b1.move_to(10.0, 20.0, 20.0);
+        assert!((distance(&b1, &b2) - 10.0).abs() < 0.0001);
     }
 
     #[test]
@@ -396,14 +488,11 @@ mod tests {
 
     #[test]
     fn test_direction() {
-        let mut p = Body::new(1.0, 1.0);
-
-        p.velocity_x = 3.0;
-        p.velocity_y = 4.0;
-        p.velocity_z = 0.0;
+        let p = BodyBuilder::unitary()
+            .velocity(Vec3::new(3.0, 4.0, 0.0))
+            .build();
 
         let (x, y, z) = p.velocity_direction();
-
         assert_approx_eq(x, 0.6);
         assert_approx_eq(y, 0.8);
         assert_approx_eq(z, 0.0);
@@ -412,7 +501,6 @@ mod tests {
     #[test]
     fn test_direction_when_stationary() {
         let p = Body::new(1.0, 1.0);
-
         let (x, y, z) = p.velocity_direction();
 
         assert_approx_eq(x, 0.0);
@@ -422,28 +510,28 @@ mod tests {
 
     #[test]
     fn test_potential_energy_two_bodies() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(1.0, 1.0);
-
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(10.0, 0.0, 0.0);
-
-        let energy = potential_energy(G, &[p1, p2]);
+        let mut builder = BodyBuilder::unitary();
+        let b1 = builder.position(Vec3::new(0.0, 0.0, 0.0)).build();
+        let b2 = builder.position(Vec3::new(10.0, 0.0, 0.0)).build();
+        let energy = potential_energy(G, &[b1, b2]);
 
         assert_approx_eq_f64(energy, -G / 10.0);
     }
 
     #[test]
     fn test_potential_energy_three_bodies() {
-        let mut p1 = Body::new(1.0, 1.0);
-        let mut p2 = Body::new(2.0, 1.0);
-        let mut p3 = Body::new(3.0, 1.0);
-
-        p1.move_to(0.0, 0.0, 0.0);
-        p2.move_to(10.0, 0.0, 0.0);
-        p3.move_to(20.0, 0.0, 0.0);
-
-        let bodies = [p1, p2, p3];
+        let mut builder = BodyBuilder::unitary();
+        let bodies = [
+            builder.position(Vec3::new(0.0, 0.0, 0.0)).build(),
+            builder
+                .mass(Mass::kg(2.0).unwrap())
+                .position(Vec3::new(10.0, 0.0, 0.0))
+                .build(),
+            builder
+                .mass(Mass::kg(3.0).unwrap())
+                .position(Vec3::new(20.0, 0.0, 0.0))
+                .build(),
+        ];
 
         let energy = potential_energy(1.0, &bodies);
 
