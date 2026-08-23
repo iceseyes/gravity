@@ -1,4 +1,5 @@
 pub mod body;
+pub mod dimension;
 pub mod runner;
 pub mod simulation;
 pub mod world;
