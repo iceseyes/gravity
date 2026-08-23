@@ -195,7 +195,7 @@ pub fn total_momentum(bodies: &[Body]) -> Vec3 {
 
 pub fn center_of_mass(bodies: &[Body]) -> Vec3 {
     let (m, c) = bodies.iter().fold((0.0, Vec3::zeros()), |(m, c), body| {
-        (m + body.mass(), c + body.position())
+        (m + body.mass(), c + body.mass() * body.position())
     });
 
     c / m
@@ -463,5 +463,20 @@ mod tests {
 
         let energy = potential_energy(1.0, &bodies);
         assert_abs_diff_eq!(energy, -0.95);
+    }
+
+    #[test]
+    fn test_com_2() {
+        let bodies = [
+            BodyBuilder::unitary()
+                .position(Vec3::new(0.0, 0.0, 0.0))
+                .build(),
+            BodyBuilder::unitary()
+                .mass(Mass::kg(9.0).unwrap())
+                .position(Vec3::new(10.0, 0.0, 0.0))
+                .build(),
+        ];
+        let com = center_of_mass(&bodies);
+        assert_abs_diff_eq!(com, Vec3::new(9.0, 0.0, 0.0));
     }
 }
