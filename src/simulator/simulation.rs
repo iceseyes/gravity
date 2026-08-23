@@ -8,6 +8,7 @@ pub enum SimulationCommand {
     Restart,
     Pause,
     ResetWarning,
+    TakeSnapshot,
     Quit,
 }
 
@@ -86,13 +87,15 @@ impl Simulation {
     fn step(&mut self) {
         if self.running {
             self.runner.run_once();
-
             self.total_steps += 1.0;
-            if let Ok(mut snapshot) = self.snapshot.write() {
-                snapshot.copy_from(self);
-            } else {
-                println!("Failed to write snapshot");
-            }
+        }
+    }
+
+    fn take_snapshot(&mut self) {
+        if let Ok(mut snapshot) = self.snapshot.write() {
+            snapshot.copy_from(self);
+        } else {
+            println!("Failed to write snapshot");
         }
     }
 
@@ -160,6 +163,7 @@ impl Simulation {
                     snapshot.warning = SimulationWarning::None;
                 }
             }
+            SimulationCommand::TakeSnapshot => self.take_snapshot(),
             SimulationCommand::Quit => return false,
         }
 

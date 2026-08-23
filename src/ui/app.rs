@@ -5,6 +5,7 @@ use eframe::egui;
 use gravity::simulator::Snapshot;
 use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot};
 use std::sync::mpsc;
+use std::time::Instant;
 
 pub(crate) enum AppAction {
     ResetViewport,
@@ -18,6 +19,7 @@ pub struct GravityApp {
     camera: Camera2D,
     reset_viewport: bool,
     simulation: SimulationSnapshot,
+    last_update: Instant,
 }
 
 impl GravityApp {
@@ -37,6 +39,7 @@ impl GravityApp {
             camera: Camera2D::default(),
             reset_viewport: true,
             simulation,
+            last_update: Instant::now(),
         }
     }
 
@@ -54,8 +57,15 @@ impl GravityApp {
 
 impl eframe::App for GravityApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let fps = 1.0 / self.last_update.elapsed().as_secs_f32();
+        self.last_update = Instant::now();
+
         if let Ok(snapshot) = self.snapshot.read() {
             self.simulation = snapshot.clone();
+        }
+
+        if let Err(e) = self.handle.send(SimulationCommand::TakeSnapshot) {
+            eprintln!("{}", e);
         }
 
         egui::Panel::top("control_panel").show(ui, |ui| {
@@ -65,6 +75,10 @@ impl eframe::App for GravityApp {
                     eprintln!("ERROR: {}", e);
                 }
             }
+        });
+
+        egui::Panel::bottom("status_panel").show(ui, |ui| {
+            ui.label(format!("FPS: {:.2}", fps));
         });
 
         egui::CentralPanel::default().show(ui, |ui| {
