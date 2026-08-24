@@ -33,6 +33,8 @@ impl Runner {
         self.world.compute_world_size();
     }
 
+    /// Advances the simulation by one fixed timestep using
+    /// semi-implicit Euler integration.
     pub fn step(&mut self) {
         let gravity_constant = self.world.gravity_constant();
         let bodies = self.world.mut_bodies();
@@ -187,7 +189,7 @@ mod tests {
         );
 
         let error = (final_ - initial).norm() / initial.norm();
-        assert!(error < 2e-6, "Error: {}%", error);
+        assert!(error < 2e-6, "angular momentum relative error: {error:e}");
     }
 
     #[test]

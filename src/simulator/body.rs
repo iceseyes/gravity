@@ -158,7 +158,7 @@ impl BodyBuilder {
         }
     }
 
-    pub fn build(&self) -> Body {
+    pub fn build(self) -> Body {
         let mut body = Body::new(self.mass.get(), self.radius.get(self.mass));
         body.move_to(self.position);
         body.set_velocity(self.velocity);
@@ -205,6 +205,10 @@ pub fn total_angular_momentum(bodies: &[Body]) -> Vec3 {
 }
 
 pub fn center_of_mass(bodies: &[Body]) -> Vec3 {
+    if bodies.is_empty() {
+        return Vec3::zeros();
+    }
+
     let (m, c) = bodies.iter().fold((0.0, Vec3::zeros()), |(m, c), body| {
         (m + body.mass(), c + body.mass() * body.position())
     });
@@ -234,9 +238,8 @@ mod tests {
     #[test]
     fn test_builder_builds_always_new_bodies() {
         let ones = Vec3::new(1.0, 1.0, 1.0);
-        let builder = BodyBuilder::unitary();
-        let mut b1 = builder.build();
-        let mut b2 = builder.build();
+        let mut b1 = BodyBuilder::unitary().build();
+        let mut b2 = BodyBuilder::unitary().build();
 
         assert_eq!(b1.mass(), b2.mass());
         assert_eq!(b1.radius(), b2.radius());
@@ -254,9 +257,8 @@ mod tests {
 
     #[test]
     fn test_distance() {
-        let builder = BodyBuilder::unitary();
-        let mut b1 = builder.build();
-        let mut b2 = builder.build();
+        let mut b1 = BodyBuilder::unitary().build();
+        let mut b2 = BodyBuilder::unitary().build();
         assert!(distance(&b1, &b2).abs() < 0.0001);
 
         b1.move_to(Vec3::new(10.0, 10.0, 10.0));
