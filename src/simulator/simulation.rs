@@ -5,19 +5,10 @@ use std::thread::{JoinHandle, spawn};
 use std::time::Instant;
 
 pub enum SimulationCommand {
-    Restart,
+    Resume,
     Pause,
-    ResetWarning,
     TakeSnapshot,
     Quit,
-}
-
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
-pub enum SimulationWarning {
-    #[default]
-    None,
-    SimulationTooSlow,
-    SimulationTooFast,
 }
 
 #[derive(Debug)]
@@ -38,7 +29,8 @@ struct Simulation {
 }
 
 impl Simulation {
-    const MAX_STEPS_PER_FRAME: f64 = 100.0;
+    const MAX_STEPS_PER_UPDATE: f64 = 100.0;
+    const SNAPSHOTS_TIMEOUT_MS: u128 = 15;
 
     fn new(
         runner: Runner,
@@ -93,56 +85,67 @@ impl Simulation {
 
     fn take_snapshot(&mut self) {
         if let Ok(mut snapshot) = self.snapshot.write() {
-            snapshot.copy_from(self);
+            if snapshot.updated_on.elapsed().as_millis() > Self::SNAPSHOTS_TIMEOUT_MS {
+                snapshot.copy_from(self);
+            }
         } else {
             println!("Failed to write snapshot");
         }
     }
 
     fn update(&mut self) -> bool {
-        if !self.running {
-            return if !self.receive_command() {
-                false
-            } else {
-                self.last_update = Instant::now();
-                true
-            };
+        if !self.receive_command() {
+            return false;
         }
 
-        let now = Instant::now();
-        let elapsed = (now - self.last_update).as_secs_f64();
+        if !self.running {
+            self.last_update = Instant::now();
+            return true;
+        }
 
-        self.accumulator += elapsed * self.desired_steps_per_second;
+        if !self.do_turn_steps() {
+            return false;
+        }
 
-        let steps = self.accumulator.floor().min(Self::MAX_STEPS_PER_FRAME) as usize;
-        self.accumulator -= steps as f64;
+        self.runner.update_world_size();
+        self.update_steps_per_second();
 
-        self.last_update = now;
-        for _ in 0..steps {
+        true
+    }
+
+    fn do_turn_steps(&mut self) -> bool {
+        for _ in 0..self.compute_steps() {
             if !self.receive_command() {
                 return false;
             }
 
             self.step();
         }
-        self.runner.update_world_size();
+
+        true
+    }
+
+    fn compute_steps(&mut self) -> usize {
+        let now = Instant::now();
+        let elapsed = (now - self.last_update).as_secs_f64();
+
+        self.accumulator += elapsed * self.desired_steps_per_second;
+
+        let steps = self.accumulator.floor().min(Self::MAX_STEPS_PER_UPDATE) as usize;
+        self.accumulator -= steps as f64;
+
+        self.last_update = now;
+
+        steps
+    }
+
+    fn update_steps_per_second(&mut self) {
+        let now = Instant::now();
 
         let seconds_since_start = (now - self.start_time).as_secs_f64();
         if self.total_steps > 0.0 && seconds_since_start > 0.0 {
             self.actual_steps_per_second = self.total_steps / seconds_since_start;
         }
-
-        if self.actual_steps_per_second < self.desired_steps_per_second {
-            if let Ok(mut snapshot) = self.snapshot.write() {
-                snapshot.warning = SimulationWarning::SimulationTooSlow;
-            }
-        } else if self.actual_steps_per_second > self.desired_steps_per_second
-            && let Ok(mut snapshot) = self.snapshot.write()
-        {
-            snapshot.warning = SimulationWarning::SimulationTooFast;
-        }
-
-        true
     }
 
     fn receive_command(&mut self) -> bool {
@@ -156,13 +159,8 @@ impl Simulation {
 
     fn handle(&mut self, command: SimulationCommand) -> bool {
         match command {
-            SimulationCommand::Restart => self.start(),
+            SimulationCommand::Resume => self.start(),
             SimulationCommand::Pause => self.pause(),
-            SimulationCommand::ResetWarning => {
-                if let Ok(mut snapshot) = self.snapshot.write() {
-                    snapshot.warning = SimulationWarning::None;
-                }
-            }
             SimulationCommand::TakeSnapshot => self.take_snapshot(),
             SimulationCommand::Quit => return false,
         }
@@ -177,7 +175,7 @@ pub struct SimulationSnapshot {
     pub time: f64,
     pub running: bool,
     pub samples_per_second: f64,
-    pub warning: SimulationWarning,
+    pub updated_on: Instant,
 }
 
 impl SimulationSnapshot {
@@ -187,7 +185,7 @@ impl SimulationSnapshot {
             time: runner.time(),
             running: true,
             samples_per_second: 0.0,
-            warning: SimulationWarning::None,
+            updated_on: Instant::now(),
         }
     }
 
@@ -196,6 +194,7 @@ impl SimulationSnapshot {
         self.time = simulation.runner.time();
         self.running = simulation.is_running();
         self.samples_per_second = simulation.actual_steps_per_second;
+        self.updated_on = Instant::now();
     }
 }
 

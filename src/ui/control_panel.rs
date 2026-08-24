@@ -4,7 +4,7 @@ use crate::ui::camera_2d::Camera2D;
 use crate::ui::format_duration;
 use eframe::egui;
 use eframe::egui::RichText;
-use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot, SimulationWarning};
+use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot};
 use std::time::Duration;
 
 pub(crate) fn draw_control_panel(
@@ -29,8 +29,6 @@ pub(crate) fn draw_control_panel(
 
         show_samples_per_second(ui, simulation);
         ui.separator();
-
-        show_simulation_warning(ui, simulation, &mut actions);
     });
 
     Ok(actions)
@@ -58,7 +56,7 @@ fn handle_simulation_state(
     {
         println!("Simulation is now {}", simulation.running);
         let command = if simulation.running {
-            SimulationCommand::Restart
+            SimulationCommand::Resume
         } else {
             SimulationCommand::Pause
         };
@@ -79,17 +77,4 @@ fn show_samples_per_second(ui: &mut egui::Ui, simulation: &SimulationSnapshot) {
         ))
         .monospace(),
     );
-}
-
-fn show_simulation_warning(
-    ui: &mut egui::Ui,
-    simulation: &SimulationSnapshot,
-    actions: &mut Vec<AppAction>,
-) {
-    if simulation.warning != SimulationWarning::None {
-        ui.label(format!("Warning: {:?}", simulation.warning));
-        actions.push(AppAction::SendSimulationCommand(
-            SimulationCommand::ResetWarning,
-        ));
-    }
 }
