@@ -42,11 +42,13 @@ impl Camera2D {
     }
 
     pub fn fit(&mut self, viewport: &Rect, world: &World) {
+        let ww = world.width().max(1.0);
+        let wh = world.height().max(1.0);
         let (ox, oy) = world.origin();
-        let ox = ox + world.width() / 2.0;
-        let oy = oy + world.height() / 2.0;
-        let width = world.width().max(1.0) * (1.0 + self.padding as f64);
-        let height = world.height().max(1.0) * (1.0 + self.padding as f64);
+        let ox = ox + ww / 2.0;
+        let oy = oy + wh / 2.0;
+        let width = ww * (1.0 + self.padding as f64);
+        let height = wh * (1.0 + self.padding as f64);
         let scale_x = viewport.width() as f64 / width;
         let scale_y = viewport.height() as f64 / height;
 

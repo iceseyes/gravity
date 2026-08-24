@@ -64,8 +64,7 @@ impl World {
         if self.bodies.is_empty() {
             0.0
         } else {
-            let w = self.max_x - self.min_x;
-            if w.abs() > 1.0 { w } else { 1.0 }
+            self.max_x - self.min_x
         }
     }
 
@@ -73,9 +72,7 @@ impl World {
         if self.bodies.is_empty() {
             0.0
         } else {
-            let h = self.max_y - self.min_y;
-
-            if h.abs() > 1.0 { h } else { 1.0 }
+            self.max_y - self.min_y
         }
     }
 
