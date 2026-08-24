@@ -21,8 +21,8 @@ impl Runner {
         self.time
     }
 
-    pub fn world(&self) -> World {
-        self.world.clone()
+    pub fn world(&self) -> &World {
+        &self.world
     }
 
     pub fn run_once(&mut self) {

@@ -190,7 +190,7 @@ impl SimulationSnapshot {
     }
 
     fn copy_from(&mut self, simulation: &Simulation) {
-        self.world = simulation.runner.world();
+        self.world = simulation.runner.world().clone();
         self.time = simulation.runner.time();
         self.running = simulation.is_running();
         self.samples_per_second = simulation.actual_steps_per_second;
