@@ -1,19 +1,22 @@
-use crate::physics::{Vec3, gravity};
 use crate::simulator::World;
+use crate::simulator::integrator::Integrator;
+use crate::simulator::integrator::symplectic_euler::SymplecticEuler;
 
 #[derive(Debug)]
-pub struct Runner {
+pub struct Runner<I: Integrator> {
     world: World,
     time: f64,
     dt: f64,
+    integrator: I,
 }
 
-impl Runner {
-    pub fn new(world: World, dt: f64) -> Self {
+impl<I: Integrator> Runner<I> {
+    pub fn new(world: World, dt: f64, integrator: I) -> Self {
         Self {
             world,
             dt,
             time: 0.0,
+            integrator,
         }
     }
 
@@ -36,41 +39,14 @@ impl Runner {
     /// Advances the simulation by one fixed timestep using
     /// semi-implicit Euler integration.
     pub fn step(&mut self) {
-        let gravity_constant = self.world.gravity_constant();
-        let bodies = self.world.mut_bodies();
-        let accelerations: Vec<Vec3> = bodies
-            .iter()
-            .enumerate()
-            .map(|(index, p1)| {
-                let a = bodies
-                    .iter()
-                    .enumerate()
-                    .fold(Vec3::zeros(), |a, (index2, p2)| {
-                        if index != index2 {
-                            let d = p2.distance_to(p1);
-                            a + gravity::gravity_field(p2.mass(), d)
-                        } else {
-                            a
-                        }
-                    });
-                gravity_constant * a
-            })
-            .collect();
-
-        bodies.iter_mut().enumerate().for_each(|(index, p)| {
-            p.update_position(self.dt);
-
-            let acc = accelerations[index];
-            p.accelerate(self.dt, acc);
-        });
-
+        self.integrator.step(&mut self.world, self.dt);
         self.time += self.dt;
     }
 }
 
-impl Default for Runner {
+impl Default for Runner<SymplecticEuler> {
     fn default() -> Self {
-        Self::new(World::default(), 1e-3)
+        Self::new(World::default(), 1e-3, SymplecticEuler)
     }
 }
 
@@ -87,7 +63,7 @@ mod tests {
     fn test_single_particle() {
         let mut w = World::default();
         w.add_body(BodyBuilder::unitary().build());
-        let runner = Runner::new(w, 1.0);
+        let runner = Runner::new(w, 1.0, SymplecticEuler);
         let p = &runner.world.bodies()[0];
 
         assert_abs_diff_eq!(p.speed(), 0.0);
@@ -103,7 +79,7 @@ mod tests {
                 .build(),
         );
 
-        let mut runner = Runner::new(w, 1e-3);
+        let mut runner = Runner::new(w, 1e-3, SymplecticEuler);
 
         runner.step();
         let bodies = runner.world.bodies();
@@ -127,7 +103,7 @@ mod tests {
                 .build(),
         );
 
-        let mut runner = Runner::new(w, 1e-3);
+        let mut runner = Runner::new(w, 1e-3, SymplecticEuler);
 
         let (p1, p2) = (&runner.world.bodies()[0], &runner.world.bodies()[1]);
         assert_abs_diff_eq!(distance(p1, p2), 0.0);
@@ -154,7 +130,7 @@ mod tests {
             world.add_body(p1);
             world.add_body(p2);
 
-            let mut runner = Runner::new(world, 1e-3);
+            let mut runner = Runner::new(world, 1e-3, SymplecticEuler);
             let initial = runner.world.$property();
 
             for _ in 0..1000 {
@@ -219,7 +195,7 @@ mod tests {
         world.add_body(star);
         world.add_body(planet);
 
-        let mut runner = Runner::new(world, 1.0);
+        let mut runner = Runner::new(world, 1.0, SymplecticEuler);
         let initial_energy = runner.world.energy();
         let mut min_distance = f64::MAX;
         let mut max_distance = 0.0f64;
@@ -256,7 +232,7 @@ mod tests {
         world.add_body(star);
         world.add_body(planet);
 
-        let mut runner = Runner::new(world, 1.0);
+        let mut runner = Runner::new(world, 1.0, SymplecticEuler);
 
         let initial = runner.world().total_angular_momentum();
 

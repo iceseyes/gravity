@@ -1,3 +1,5 @@
+use crate::simulator::integrator::Integrator;
+use crate::simulator::integrator::symplectic_euler::SymplecticEuler;
 use crate::simulator::runner::Runner;
 use crate::simulator::{Snapshot, World};
 use std::sync::{Arc, RwLock, mpsc};
@@ -12,8 +14,8 @@ pub enum SimulationCommand {
 }
 
 #[derive(Debug)]
-struct Simulation {
-    runner: Runner,
+struct Simulation<I: Integrator> {
+    runner: Runner<I>,
     running: bool,
     desired_steps_per_second: f64,
     actual_steps_per_second: f64,
@@ -28,12 +30,12 @@ struct Simulation {
     snapshot: Snapshot,
 }
 
-impl Simulation {
+impl<I: Integrator> Simulation<I> {
     const MAX_STEPS_PER_UPDATE: f64 = 100.0;
     const SNAPSHOTS_TIMEOUT_MS: u128 = 15;
 
     fn new(
-        runner: Runner,
+        runner: Runner<I>,
         steps_per_second: f64,
         command_rx: mpsc::Receiver<SimulationCommand>,
     ) -> Self {
@@ -179,7 +181,7 @@ pub struct SimulationSnapshot {
 }
 
 impl SimulationSnapshot {
-    pub(crate) fn new(runner: &Runner) -> Self {
+    pub(crate) fn new<I: Integrator>(runner: &Runner<I>) -> Self {
         Self {
             world: runner.world().clone(),
             time: runner.time(),
@@ -189,7 +191,7 @@ impl SimulationSnapshot {
         }
     }
 
-    fn copy_from(&mut self, simulation: &Simulation) {
+    fn copy_from<I: Integrator>(&mut self, simulation: &Simulation<I>) {
         self.world = simulation.runner.world().clone();
         self.time = simulation.runner.time();
         self.running = simulation.is_running();
@@ -204,7 +206,11 @@ pub fn run(
     steps_per_sec: u32,
 ) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
     let (tx, rx) = mpsc::channel();
-    let mut simulation = Simulation::new(Runner::new(world, dt), steps_per_sec as f64, rx);
+    let mut simulation = Simulation::new(
+        Runner::new(world, dt, SymplecticEuler),
+        steps_per_sec as f64,
+        rx,
+    );
     let snapshot = simulation.snapshot.clone();
 
     simulation.start();
