@@ -4,8 +4,6 @@ use crate::simulator::body::{
     Body, center_of_mass, kinetic_energy, potential_energy, total_momentum,
 };
 
-pub const DEFAULT_DTIME: f32 = 1e-3; // seconds
-
 #[derive(Debug, Clone)]
 pub struct World {
     gravity_constant: f64,
