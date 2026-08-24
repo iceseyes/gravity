@@ -79,6 +79,10 @@ impl Body {
         dynamic::momentum(self.mass, self.velocity)
     }
 
+    pub fn angular_momentum(&self) -> Vec3 {
+        self.position().cross(&self.momentum())
+    }
+
     pub fn move_to(&mut self, p: Vec3) {
         self.position = p;
     }
@@ -191,6 +195,13 @@ pub fn total_momentum(bodies: &[Body]) -> Vec3 {
     bodies
         .iter()
         .fold(Vec3::zeros(), |q, body| q + body.momentum())
+}
+
+pub fn total_angular_momentum(bodies: &[Body]) -> Vec3 {
+    let c = center_of_mass(bodies);
+    bodies.iter().fold(Vec3::zeros(), |q, body| {
+        q + (body.position - c).cross(&body.momentum())
+    })
 }
 
 pub fn center_of_mass(bodies: &[Body]) -> Vec3 {
@@ -478,5 +489,38 @@ mod tests {
         ];
         let com = center_of_mass(&bodies);
         assert_abs_diff_eq!(com, Vec3::new(9.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn test_angular_momentum() {
+        let body = BodyBuilder::unitary()
+            .position(Vec3::new(2.0, 0.0, 0.0))
+            .velocity(Vec3::new(0.0, 3.0, 0.0))
+            .build();
+
+        let l = body.angular_momentum();
+
+        // r = (2, 0, 0)
+        // p = m * v = (0, 3, 0)
+        //
+        // r × p = (0, 0, 6)
+
+        assert_abs_diff_eq!(l, Vec3::new(0.0, 0.0, 6.0));
+    }
+
+    #[test]
+    fn test_angular_momentum_depends_on_mass() {
+        let body = BodyBuilder::unitary()
+            .mass(Mass::kg(5.0).unwrap())
+            .position(Vec3::new(2.0, 0.0, 0.0))
+            .velocity(Vec3::new(0.0, 3.0, 0.0))
+            .build();
+
+        let l = body.angular_momentum();
+
+        // p = m * v = (0, 15, 0)
+        // L = r × p = (0, 0, 30)
+
+        assert_abs_diff_eq!(l, Vec3::new(0.0, 0.0, 30.0));
     }
 }

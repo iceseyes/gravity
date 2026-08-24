@@ -177,6 +177,20 @@ mod tests {
     }
 
     #[test]
+    fn test_angular_momentum_is_conserved() {
+        let (initial, final_) = two_body_test_system!(
+            total_angular_momentum,
+            setup (p1, p2) {
+                p1.set_velocity(Vec3::new(0.0, 100.0, 0.0));
+                p2.set_velocity(Vec3::new(0.0, -100.0, 0.0));
+            }
+        );
+
+        let error = (final_ - initial).norm() / initial.norm();
+        assert!(error < 2e-6, "Error: {}%", error);
+    }
+
+    #[test]
     fn test_center_of_mass_does_not_move() {
         let (initial_com, final_com) = two_body_test_system!(center_of_mass);
 
@@ -227,5 +241,30 @@ mod tests {
             relative_energy_error
         );
         assert!(radial_error < 0.05);
+    }
+
+    #[test]
+    fn test_angular_momentum_is_conserved_in_orbit() {
+        let star = BodyBuilder::new(Mass::kg(1e30).unwrap(), Radius::m(1.0e8).unwrap()).build();
+        let mut planet =
+            BodyBuilder::new(Mass::kg(1e20).unwrap(), Radius::m(1.0e3).unwrap()).build();
+        planet.in_circular_orbit(G, &star, 1.0e11);
+
+        let mut world = World::default();
+        world.add_body(star);
+        world.add_body(planet);
+
+        let mut runner = Runner::new(world, 1.0);
+
+        let initial = runner.world().total_angular_momentum();
+
+        for _ in 0..100_000 {
+            runner.step();
+        }
+
+        let final_ = runner.world().total_angular_momentum();
+        let error = (final_ - initial).norm() / initial.norm();
+
+        assert!(error < 2e-6, "angular momentum relative error: {error}");
     }
 }

@@ -1,7 +1,7 @@
 use crate::physics;
 use crate::physics::Vec3;
 use crate::simulator::body::{
-    Body, center_of_mass, kinetic_energy, potential_energy, total_momentum,
+    Body, center_of_mass, kinetic_energy, potential_energy, total_angular_momentum, total_momentum,
 };
 
 #[derive(Debug, Clone)]
@@ -90,6 +90,10 @@ impl World {
 
     pub fn total_momentum(&self) -> Vec3 {
         total_momentum(&self.bodies)
+    }
+
+    pub fn total_angular_momentum(&self) -> Vec3 {
+        total_angular_momentum(&self.bodies)
     }
 
     pub fn center_of_mass(&self) -> Vec3 {
