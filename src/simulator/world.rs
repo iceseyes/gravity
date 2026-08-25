@@ -1,5 +1,5 @@
 use crate::physics;
-use crate::physics::Vec3;
+use crate::physics::{Vec3, gravity};
 use crate::simulator::body::{
     Body, center_of_mass, kinetic_energy, potential_energy, total_angular_momentum, total_momentum,
 };
@@ -88,6 +88,27 @@ impl World {
         &mut self.bodies
     }
 
+    pub fn accelerations(&self) -> Vec<Vec3> {
+        self.bodies
+            .iter()
+            .enumerate()
+            .map(|(index, p1)| {
+                let a = self
+                    .bodies
+                    .iter()
+                    .enumerate()
+                    .fold(Vec3::zeros(), |a, (index2, p2)| {
+                        if index != index2 {
+                            let d = p2.distance_to(p1);
+                            a + gravity::gravity_field(p2.mass(), d)
+                        } else {
+                            a
+                        }
+                    });
+                self.gravity_constant * a
+            })
+            .collect()
+    }
     pub fn total_momentum(&self) -> Vec3 {
         total_momentum(&self.bodies)
     }

@@ -57,7 +57,22 @@ mod tests {
     use crate::simulator::Body;
     use crate::simulator::body::{BodyBuilder, distance};
     use crate::simulator::dimension::{Mass, Radius};
+    use crate::simulator::integrator::velocity_verlet::VelocityVerlet;
     use approx::assert_abs_diff_eq;
+
+    fn orbit_world_fixture(orbital_radius: f64) -> World {
+        let star = BodyBuilder::new(Mass::kg(1e30).unwrap(), Radius::m(1.0e8).unwrap()).build();
+        let mut planet =
+            BodyBuilder::new(Mass::kg(1e20).unwrap(), Radius::m(1.0e3).unwrap()).build();
+
+        planet.in_circular_orbit(G, &star, orbital_radius);
+
+        let mut world = World::default();
+        world.add_body(star);
+        world.add_body(planet);
+
+        world
+    }
 
     #[test]
     fn test_single_particle() {
@@ -182,20 +197,13 @@ mod tests {
         assert!(relative_error < 1e-4, "relative error: {}", relative_error);
     }
 
-    #[test]
-    fn test_circular_orbit() {
-        let star = BodyBuilder::new(Mass::kg(1e30).unwrap(), Radius::m(1.0e8).unwrap()).build();
-        let mut planet =
-            BodyBuilder::new(Mass::kg(1e20).unwrap(), Radius::m(1.0e3).unwrap()).build();
+    fn test_circular_orbit<I: Integrator>(
+        integrator: I,
+        expected_relative_energy_error: f64,
+        expected_radial_error: f64,
+    ) {
         let orbital_radius = 1.0e11_f64;
-
-        planet.in_circular_orbit(G, &star, orbital_radius);
-
-        let mut world = World::default();
-        world.add_body(star);
-        world.add_body(planet);
-
-        let mut runner = Runner::new(world, 1.0, SymplecticEuler);
+        let mut runner = Runner::new(orbit_world_fixture(orbital_radius), 1.0, integrator);
         let initial_energy = runner.world.energy();
         let mut min_distance = f64::MAX;
         let mut max_distance = 0.0f64;
@@ -214,26 +222,28 @@ mod tests {
         let relative_energy_error = ((final_energy - initial_energy) / initial_energy).abs();
 
         assert!(
-            relative_energy_error < 0.05,
+            relative_energy_error < expected_relative_energy_error,
             "relative energy error: {}",
             relative_energy_error
         );
-        assert!(radial_error < 0.05);
+        assert!(radial_error < expected_radial_error);
+    }
+    #[test]
+    fn test_circular_orbit_velocity_verlet() {
+        test_circular_orbit(VelocityVerlet, 5e-6, 0.0005)
     }
 
     #[test]
-    fn test_angular_momentum_is_conserved_in_orbit() {
-        let star = BodyBuilder::new(Mass::kg(1e30).unwrap(), Radius::m(1.0e8).unwrap()).build();
-        let mut planet =
-            BodyBuilder::new(Mass::kg(1e20).unwrap(), Radius::m(1.0e3).unwrap()).build();
-        planet.in_circular_orbit(G, &star, 1.0e11);
+    fn test_circular_orbit_symplectic_euler() {
+        test_circular_orbit(SymplecticEuler, 0.05, 0.05)
+    }
 
-        let mut world = World::default();
-        world.add_body(star);
-        world.add_body(planet);
-
-        let mut runner = Runner::new(world, 1.0, SymplecticEuler);
-
+    fn test_angular_momentum_is_conserved_in_orbit<I: Integrator>(
+        integrator: I,
+        expected_relative_error: f64,
+    ) {
+        let orbital_radius = 1.0e11_f64;
+        let mut runner = Runner::new(orbit_world_fixture(orbital_radius), 1.0, integrator);
         let initial = runner.world().total_angular_momentum();
 
         for _ in 0..100_000 {
@@ -243,6 +253,19 @@ mod tests {
         let final_ = runner.world().total_angular_momentum();
         let error = (final_ - initial).norm() / initial.norm();
 
-        assert!(error < 2e-6, "angular momentum relative error: {error}");
+        assert!(
+            error < expected_relative_error,
+            "angular momentum relative error: {error}"
+        );
+    }
+
+    #[test]
+    fn test_angular_momentum_is_conserved_in_orbit_symplectic_euler() {
+        test_angular_momentum_is_conserved_in_orbit(SymplecticEuler, 2e-6);
+    }
+
+    #[test]
+    fn test_angular_momentum_is_conserved_in_orbit_velocity_verlet() {
+        test_angular_momentum_is_conserved_in_orbit(VelocityVerlet, 4e-9);
     }
 }

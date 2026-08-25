@@ -11,6 +11,7 @@ pub struct Body {
     velocity: Vec3,
     mass: f64,
     radius: f64,
+    last_acceleration: Vec3,
 }
 
 impl Body {
@@ -20,6 +21,7 @@ impl Body {
             velocity: Vec3::zeros(),
             mass,
             radius,
+            last_acceleration: Vec3::zeros(),
         }
     }
 
@@ -42,6 +44,7 @@ impl Body {
             velocity: Vec3::zeros(),
             mass: mass.get(),
             radius,
+            last_acceleration: Vec3::zeros(),
         }
     }
 
@@ -104,7 +107,12 @@ impl Body {
     }
 
     pub fn accelerate(&mut self, dt: f64, a: Vec3) {
+        self.last_acceleration = a;
         self.velocity += dt * a;
+    }
+
+    pub fn last_acceleration(&self) -> Vec3 {
+        self.last_acceleration
     }
 
     pub fn update_position(&mut self, dt: f64) {

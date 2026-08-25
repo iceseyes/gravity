@@ -10,6 +10,7 @@ use crate::physics::Vec3;
 pub use crate::simulator::body::Body;
 use crate::simulator::body::BodyBuilder;
 use crate::simulator::dimension::{Mass, Radius};
+use crate::simulator::integrator::Integrator;
 use crate::simulator::simulation::{SimulationCommand, SimulationSnapshot, run};
 pub use crate::simulator::world::World;
 use std::sync::mpsc::Sender;
@@ -18,16 +19,21 @@ use std::thread::JoinHandle;
 
 pub type Snapshot = Arc<RwLock<SimulationSnapshot>>;
 
-pub fn random(n_bodies: usize) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
+pub fn random<I: Integrator + Send + 'static>(
+    integrator: I,
+    n_bodies: usize,
+) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
     let mut world = World::default();
     for _ in 0..n_bodies {
         world.add_body(Body::random());
     }
 
-    run(world, 60.0 * 60.0 * 24.0 * 365.0 * 1e1, 120)
+    run(world, 60.0 * 60.0 * 24.0 * 365.0 * 1e1, 120, integrator)
 }
 
-pub fn three_bodies_aligned() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
+pub fn three_bodies_aligned<I: Integrator + Send + 'static>(
+    integrator: I,
+) -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     let mut world = World::default();
 
     world.add_body(
@@ -51,11 +57,13 @@ pub fn three_bodies_aligned() -> (JoinHandle<()>, Sender<SimulationCommand>, Sna
             .build(),
     );
 
-    run(world, 1e-3, 1000000)
+    run(world, 1e-3, 1000000, integrator)
 }
 
-pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
-    let mut world = World::new(physics::G);
+pub fn orbit<I: Integrator + Send + 'static>(
+    integrator: I,
+) -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
+    let mut world = World::default();
 
     let star = BodyBuilder::unitary()
         .mass(Mass::kg(1.0e30).unwrap())
@@ -72,11 +80,13 @@ pub fn orbit() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     world.add_body(star);
     world.add_body(planet);
 
-    run(world, 1e-3, 2000000)
+    run(world, 1e-3, 2000000, integrator)
 }
 
-pub fn sol() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
-    let mut world = World::new(physics::G);
+pub fn sol<I: Integrator + Send + 'static>(
+    integrator: I,
+) -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
+    let mut world = World::default();
 
     let sol = BodyBuilder::unitary()
         .mass(Mass::kg(1.989e30).unwrap())
@@ -149,5 +159,5 @@ pub fn sol() -> (JoinHandle<()>, Sender<SimulationCommand>, Snapshot) {
     world.add_body(neptune);
     world.add_body(pluto);
 
-    run(world, 1.0, 2000000)
+    run(world, 1.0, 2000000, integrator)
 }

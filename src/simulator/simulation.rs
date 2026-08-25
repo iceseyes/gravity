@@ -1,5 +1,4 @@
 use crate::simulator::integrator::Integrator;
-use crate::simulator::integrator::symplectic_euler::SymplecticEuler;
 use crate::simulator::runner::Runner;
 use crate::simulator::{Snapshot, World};
 use std::sync::{Arc, RwLock, mpsc};
@@ -200,17 +199,15 @@ impl SimulationSnapshot {
     }
 }
 
-pub fn run(
+pub fn run<I: Integrator + Send + 'static>(
     world: World,
     dt: f64,
     steps_per_sec: u32,
+    integrator: I,
 ) -> (JoinHandle<()>, mpsc::Sender<SimulationCommand>, Snapshot) {
     let (tx, rx) = mpsc::channel();
-    let mut simulation = Simulation::new(
-        Runner::new(world, dt, SymplecticEuler),
-        steps_per_sec as f64,
-        rx,
-    );
+    let mut simulation =
+        Simulation::new(Runner::new(world, dt, integrator), steps_per_sec as f64, rx);
     let snapshot = simulation.snapshot.clone();
 
     simulation.start();

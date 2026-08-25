@@ -1,4 +1,5 @@
 pub mod symplectic_euler;
+pub mod velocity_verlet;
 
 use crate::simulator::World;
 
