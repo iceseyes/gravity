@@ -36,8 +36,7 @@ impl<I: Integrator> Runner<I> {
         self.world.compute_world_size();
     }
 
-    /// Advances the simulation by one fixed timestep using
-    /// semi-implicit Euler integration.
+    /// Advances the simulation by one fixed timestep
     pub fn step(&mut self) {
         self.integrator.step(&mut self.world, self.dt);
         self.time += self.dt;
