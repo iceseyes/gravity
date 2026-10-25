@@ -2,6 +2,7 @@ extern crate core;
 
 pub mod ui;
 
+use crate::ui::renderer::renderer_3d::Renderer3D;
 use anyhow::Context;
 use gravity::simulator;
 use gravity::simulator::integrator::velocity_verlet::VelocityVerlet;
@@ -17,7 +18,14 @@ fn main() -> anyhow::Result<()> {
     let ris = eframe::run_native(
         "Gravity Simulator",
         native_options,
-        Box::new(|cc| Ok(Box::new(GravityApp::new(cc, handle.clone(), snapshot)))),
+        Box::new(|cc| {
+            Ok(Box::new(GravityApp::new(
+                cc,
+                handle.clone(),
+                Renderer3D::default(),
+                snapshot,
+            )))
+        }),
     )
     .context("Failed to run eframe");
 

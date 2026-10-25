@@ -1,6 +1,5 @@
-use crate::ui::camera_2d::Camera2D;
 use crate::ui::control_panel::draw_control_panel;
-use crate::ui::world::{draw_world, setup_viewport};
+use crate::ui::renderer::Renderer;
 use eframe::egui;
 use gravity::simulator::Snapshot;
 use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot};
@@ -16,16 +15,17 @@ pub(crate) enum AppAction {
 pub struct GravityApp {
     handle: mpsc::Sender<SimulationCommand>,
     snapshot: Snapshot,
-    camera: Camera2D,
+    renderer: Box<dyn Renderer>,
     reset_viewport: bool,
     simulation: SimulationSnapshot,
     last_update: Instant,
 }
 
 impl GravityApp {
-    pub fn new(
+    pub fn new<R: Renderer + 'static>(
         _cc: &eframe::CreationContext<'_>,
         handle: mpsc::Sender<SimulationCommand>,
+        renderer: R,
         snapshot: Snapshot,
     ) -> Self {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
@@ -36,7 +36,7 @@ impl GravityApp {
         Self {
             handle,
             snapshot,
-            camera: Camera2D::default(),
+            renderer: Box::new(renderer),
             reset_viewport: true,
             simulation,
             last_update: Instant::now(),
@@ -69,7 +69,7 @@ impl eframe::App for GravityApp {
         }
 
         egui::Panel::top("control_panel").show(ui, |ui| {
-            match draw_control_panel(ui, &self.camera, &mut self.simulation) {
+            match draw_control_panel(ui, &*self.renderer, &mut self.simulation) {
                 Ok(mut actions) => actions.drain(..).for_each(|action| self.handle(action)),
                 Err(e) => {
                     eprintln!("ERROR: {}", e);
@@ -82,13 +82,14 @@ impl eframe::App for GravityApp {
         });
 
         egui::CentralPanel::default().show(ui, |ui| {
-            let rect = setup_viewport(&mut self.camera, ui);
+            let rect = self.renderer.setup(ui, &self.simulation.world);
             if self.reset_viewport {
-                self.camera.fit(&rect, &self.simulation.world);
+                self.renderer.fit(&rect, &self.simulation.world);
                 self.reset_viewport = false;
             }
 
-            draw_world(&self.simulation.world, &self.camera, ui.painter(), rect);
+            self.renderer
+                .render(&self.simulation.world, ui.painter(), &rect);
         });
 
         // demand next frame

@@ -1,10 +1,7 @@
 pub mod app;
-pub mod body;
-pub mod camera_2d;
-pub mod camera_3d;
+pub mod camera;
 pub mod control_panel;
-pub mod grid;
-pub mod world;
+pub mod renderer;
 
 use std::time::Duration;
 

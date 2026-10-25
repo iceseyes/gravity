@@ -1,7 +1,7 @@
 use crate::ui::app::AppAction;
 use crate::ui::app::AppAction::ResetViewport;
-use crate::ui::camera_2d::Camera2D;
 use crate::ui::format_duration;
+use crate::ui::renderer::Renderer;
 use eframe::egui;
 use eframe::egui::RichText;
 use gravity::simulator::simulation::{SimulationCommand, SimulationSnapshot};
@@ -9,7 +9,7 @@ use std::time::Duration;
 
 pub(crate) fn draw_control_panel(
     ui: &mut egui::Ui,
-    camera: &Camera2D,
+    renderer: &dyn Renderer,
     simulation: &mut SimulationSnapshot,
 ) -> anyhow::Result<Vec<AppAction>> {
     let mut actions = Vec::new();
@@ -18,7 +18,7 @@ pub(crate) fn draw_control_panel(
         ui.label("Gravity Simulator");
         ui.separator();
 
-        handle_scale(ui, camera, &mut actions);
+        handle_scale(ui, renderer, &mut actions);
         ui.separator();
 
         handle_simulation_state(ui, simulation, &mut actions);
@@ -34,10 +34,10 @@ pub(crate) fn draw_control_panel(
     Ok(actions)
 }
 
-fn handle_scale(ui: &mut egui::Ui, camera: &Camera2D, actions: &mut Vec<AppAction>) {
+fn handle_scale(ui: &mut egui::Ui, renderer: &dyn Renderer, actions: &mut Vec<AppAction>) {
     ui.add(egui::Label::new(format!(
         "Scale: {:.4e} pixel/meter",
-        camera.scale()
+        renderer.scale()
     )));
 
     if ui.add(egui::Button::new("Fit View")).clicked() {

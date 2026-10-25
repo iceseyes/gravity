@@ -1,4 +1,4 @@
-use nalgebra::{Matrix4, Translation3, UnitQuaternion, Vector3};
+use nalgebra::{Matrix4, Translation3, UnitQuaternion, Vector2, Vector3, Vector4};
 use std::f64::consts::PI;
 
 type Vec3 = Vector3<f64>;
@@ -62,7 +62,7 @@ impl Default for Camera3DBuilder {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Camera3D {
     position: Vec3,
     orientation: Rotation3,
@@ -87,7 +87,7 @@ impl Camera3D {
     }
 
     pub fn look_at(&mut self, target: &Vec3) {
-        let direction = target - self.position;
+        let direction = self.position - target;
 
         if direction.norm_squared() > f64::EPSILON {
             self.orientation = Rotation3::face_towards(&direction, &Vec3::y());
@@ -106,6 +106,11 @@ impl Camera3D {
         self.aspect_ratio
     }
 
+    pub fn set_aspect_ratio(&mut self, aspect_ratio: f64) {
+        assert!(aspect_ratio.is_finite() && aspect_ratio > 0.0);
+        self.aspect_ratio = aspect_ratio;
+    }
+
     pub fn near(&self) -> f64 {
         self.near
     }
@@ -121,11 +126,44 @@ impl Camera3D {
 
         inverse_rotation.to_homogeneous() * inverse_translation.to_homogeneous()
     }
+
+    /// Projects a world-space point to viewport-relative pixel coordinates.
+    ///
+    /// Returns None if the point is outside the camera frustum.
+    pub fn project(&self, point: &Vec3, width: f64, height: f64) -> Option<Vector2<f64>> {
+        if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+            return None;
+        }
+
+        // World space -> camera space.
+        let camera_point = self.view_matrix() * Vector4::new(point.x, point.y, point.z, 1.0);
+
+        // Camera looks along its local -Z axis.
+        let depth = -camera_point.z;
+        if !depth.is_finite() || depth < self.near || depth > self.far {
+            return None;
+        }
+
+        // Perspective projection.
+        let tan_half_fov_y = (self.fov_y * 0.5).tan();
+        let aspect_ratio = width / height;
+        let ndc_x = camera_point.x / (depth * tan_half_fov_y * aspect_ratio);
+        let ndc_y = camera_point.y / (depth * tan_half_fov_y);
+        if !ndc_x.is_finite() || !ndc_y.is_finite() || ndc_x.abs() > 1.0 || ndc_y.abs() > 1.0 {
+            return None;
+        }
+
+        // Normalized device coordinates -> viewport pixels.
+        Some(Vector2::new(
+            (ndc_x + 1.0) * 0.5 * width,
+            (1.0 - ndc_y) * 0.5 * height,
+        ))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ui::camera_3d::{Camera3D, Camera3DBuilder, Vec3};
+    use crate::ui::camera::camera_3d::{Camera3D, Camera3DBuilder, Vec3};
     use approx::assert_abs_diff_eq;
     use nalgebra::Matrix4;
     use std::f64::consts::PI;
@@ -162,5 +200,19 @@ mod tests {
         let camera_point = camera.view_matrix() * point;
 
         assert!((camera_point.z + 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_project_center() {
+        let camera = Camera3DBuilder::new(Vec3::zeros(), Vec3::new(0.0, 0.0, -1.0))
+            .viewport_size(800.0f64, 800.0f64)
+            .build();
+
+        let screen = camera
+            .project(&Vec3::new(0.0, 0.0, -5.0), 800.0, 800.0)
+            .unwrap();
+
+        assert_abs_diff_eq!(screen.x, 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(screen.y, 400.0, epsilon = 1e-10);
     }
 }
