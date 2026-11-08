@@ -179,10 +179,10 @@ impl Renderer3D {
                 for (start, end, stroke) in lines {
                     self.draw_grid_line(painter, viewport, start, end, stroke);
                 }
-            }
 
-            // 2. Coordinate Labels on Axes Every 2 Intervals
-            self.draw_coordinates(painter, viewport, plane, p, spacing);
+                // 2. Coordinate Labels on Axes Every 2 Intervals
+                self.draw_coordinates(painter, viewport, plane, p, spacing);
+            }
         }
 
         // 3. Draw Main Axes X, Y, Z Over Grid With Dedicated Colors (RGB = XYZ)
@@ -197,10 +197,6 @@ impl Renderer3D {
         p: Vec3,
         spacing: f64,
     ) {
-        if (p.x - plane.x).abs() < spacing * 0.1 {
-            return;
-        }
-
         let draw = |val: f64, pos: Vec3| {
             if (val / spacing).round() as i64 % 2 == 0 {
                 self.draw_grid_label(painter, viewport, pos, Self::format_coord(val));
