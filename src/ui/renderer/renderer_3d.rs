@@ -1,11 +1,12 @@
 use crate::ui::camera::camera_3d::{Camera3D, Camera3DBuilder};
 use crate::ui::renderer::Renderer;
 use eframe::egui::{self, Color32, Painter, Pos2, Rect};
+use gravity::math;
+use gravity::math::origin;
 use gravity::simulator::{Body, World};
-use nalgebra::{Vector3, Vector4};
+use math::Vec3;
+use nalgebra::Vector4;
 use std::f64::consts::PI;
-
-type Vec3 = Vector3<f64>;
 
 #[derive(Debug)]
 pub struct Renderer3D {
@@ -14,6 +15,7 @@ pub struct Renderer3D {
     yaw: f64,
     pitch: f64,
     distance: f64,
+    grid_size: i32,
 }
 
 impl Default for Renderer3D {
@@ -30,6 +32,7 @@ impl Renderer3D {
             yaw: 0.0,
             pitch: 0.0,
             distance: 10.0,
+            grid_size: 40,
         }
     }
 
@@ -98,6 +101,219 @@ impl Renderer3D {
         Some((depth, screen_pos, pixel_radius, Color32::YELLOW))
     }
 
+    fn grid_spacing(&self) -> f64 {
+        let target_step = self.distance / 10.0;
+        let exponent = target_step.log10().floor();
+        let base = 10.0_f64.powf(exponent);
+        let fraction = target_step / base;
+        if fraction < 2.0 {
+            base
+        } else if fraction < 5.0 {
+            2.0 * base
+        } else {
+            5.0 * base
+        }
+    }
+
+    fn draw_grid(&self, painter: &Painter, viewport: &Rect) {
+        // Compute a "nice step" based on the distance of the camera from the target.
+        let spacing = self.grid_spacing();
+        let half_size = self.grid_size / 2;
+
+        // Align the center to the grid spacing to avoid snapping during pan/orbit.
+        let center = math::align(self.target, spacing);
+        let (min, max) = math::edges_from_point(center, half_size, spacing);
+
+        // The origin (0,0,0) belongs to every reference plane if visible, otherwise to the local center
+        let plane = origin(center, min, max);
+
+        // Stroke for base reference plane (X-Z)
+        let ground_stroke =
+            egui::Stroke::new(0.5, Color32::from_rgba_premultiplied(45, 45, 55, 160));
+
+        // Stroke for verticals planes (X-Y and Y-Z), a little bit lighten to improve visibility
+        let vertical_stroke =
+            egui::Stroke::new(0.5, Color32::from_rgba_premultiplied(35, 35, 45, 90));
+
+        // 1. Draw the lines of the 3 planes (excluding the main axes that we will draw above)
+        for i in -half_size..=half_size {
+            let p = plane.map(|c| c + f64::from(i) * spacing);
+
+            if i != 0 {
+                let lines = [
+                    // Plane X-Z (floor)
+                    (
+                        Vec3::new(min.x, plane.y, p.z),
+                        Vec3::new(max.x, plane.y, p.z),
+                        ground_stroke,
+                    ),
+                    (
+                        Vec3::new(p.x, plane.y, min.z),
+                        Vec3::new(p.x, plane.y, max.z),
+                        ground_stroke,
+                    ),
+                    // Plane X-Y (frontal)
+                    (
+                        Vec3::new(min.x, p.y, plane.z),
+                        Vec3::new(max.x, p.y, plane.z),
+                        vertical_stroke,
+                    ),
+                    (
+                        Vec3::new(p.x, min.y, plane.z),
+                        Vec3::new(p.x, max.y, plane.z),
+                        vertical_stroke,
+                    ),
+                    // Plane Y-Z (lateral)
+                    (
+                        Vec3::new(plane.x, min.y, p.z),
+                        Vec3::new(plane.x, max.y, p.z),
+                        vertical_stroke,
+                    ),
+                    (
+                        Vec3::new(plane.x, p.y, min.z),
+                        Vec3::new(plane.x, p.y, max.z),
+                        vertical_stroke,
+                    ),
+                ];
+
+                for (start, end, stroke) in lines {
+                    self.draw_grid_line(painter, viewport, start, end, stroke);
+                }
+            }
+
+            // 2. Coordinate Labels on Axes Every 2 Intervals
+            self.draw_coordinates(painter, viewport, plane, p, spacing);
+        }
+
+        // 3. Draw Main Axes X, Y, Z Over Grid With Dedicated Colors (RGB = XYZ)
+        self.draw_main_axes(painter, viewport, plane, min, max);
+    }
+
+    fn draw_coordinates(
+        &self,
+        painter: &Painter,
+        viewport: &Rect,
+        plane: Vec3,
+        p: Vec3,
+        spacing: f64,
+    ) {
+        if (p.x - plane.x).abs() < spacing * 0.1 {
+            return;
+        }
+
+        let draw = |val: f64, pos: Vec3| {
+            if (val / spacing).round() as i64 % 2 == 0 {
+                self.draw_grid_label(painter, viewport, pos, Self::format_coord(val));
+            }
+        };
+
+        draw(p.x, Vec3::new(p.x, plane.y, plane.z));
+        draw(p.y, Vec3::new(plane.x, p.y, plane.z));
+        draw(p.z, Vec3::new(plane.x, plane.y, p.z));
+    }
+
+    fn draw_main_axes(
+        &self,
+        painter: &Painter,
+        viewport: &Rect,
+        plane: Vec3,
+        min: Vec3,
+        max: Vec3,
+    ) {
+        // Main Cartesian axes X (RED), Y (GREEN), Z (BLUE) - standard RGB = XYZ
+        let axis_x_stroke = egui::Stroke::new(1.5, Color32::from_rgb(220, 60, 60));
+        let axis_y_stroke = egui::Stroke::new(1.5, Color32::from_rgb(60, 200, 60));
+        let axis_z_stroke = egui::Stroke::new(1.5, Color32::from_rgb(60, 120, 240));
+
+        // X Axis (red)
+        self.draw_grid_line(
+            painter,
+            viewport,
+            Vec3::new(min.x, plane.y, plane.z),
+            Vec3::new(max.x, plane.y, plane.z),
+            axis_x_stroke,
+        );
+        // Y Axis (green)
+        self.draw_grid_line(
+            painter,
+            viewport,
+            Vec3::new(plane.x, min.y, plane.z),
+            Vec3::new(plane.x, max.y, plane.z),
+            axis_y_stroke,
+        );
+        // Z Axis (blue)
+        self.draw_grid_line(
+            painter,
+            viewport,
+            Vec3::new(plane.x, plane.y, min.z),
+            Vec3::new(plane.x, plane.y, max.z),
+            axis_z_stroke,
+        );
+
+        // Label at the origin of the axes
+        self.draw_grid_label(painter, viewport, plane, "0m".to_string());
+
+        // Axes labels to the positive ends
+        self.draw_grid_label(painter, viewport, plane, "+Y".to_string());
+        self.draw_grid_label(painter, viewport, plane, "+Z".to_string());
+    }
+
+    fn format_coord(val: f64) -> String {
+        if val.abs() < 1e-12 {
+            "0m".to_string()
+        } else if val.abs() >= 1e4 || val.abs() < 0.01 {
+            format!("{:.1e}m", val)
+        } else {
+            format!("{:.0}m", val)
+        }
+    }
+
+    fn draw_grid_label(&self, painter: &Painter, viewport: &Rect, point: Vec3, text: String) {
+        let width = f64::from(viewport.width());
+        let height = f64::from(viewport.height());
+
+        let Some(screen) = self.camera.project(&point, width, height) else {
+            return;
+        };
+
+        let pos = Pos2::new(
+            viewport.left() + screen.x as f32,
+            viewport.top() + screen.y as f32,
+        );
+
+        painter.text(
+            pos,
+            egui::Align2::CENTER_CENTER,
+            text,
+            egui::FontId::monospace(10.0),
+            Color32::from_rgba_premultiplied(160, 160, 160, 180),
+        );
+    }
+
+    fn draw_grid_line(
+        &self,
+        painter: &Painter,
+        viewport: &Rect,
+        start: Vec3,
+        end: Vec3,
+        stroke: egui::Stroke,
+    ) {
+        let width = f64::from(viewport.width());
+        let height = f64::from(viewport.height());
+
+        let Some((a, b)) = self
+            .camera
+            .project_line_segment(&start, &end, width, height)
+        else {
+            return;
+        };
+
+        let a = Pos2::new(viewport.left() + a.x as f32, viewport.top() + a.y as f32);
+        let b = Pos2::new(viewport.left() + b.x as f32, viewport.top() + b.y as f32);
+
+        painter.line_segment([a, b], stroke);
+    }
+
     fn draw_origin(&self, painter: &Painter, viewport: &Rect) {
         if let Some(screen) = self.camera.project(
             &Vec3::zeros(),
@@ -135,13 +351,12 @@ impl Renderer3D {
             }
         }
 
-        let result = best.map(|(index, _, _)| index);
-        result
+        best.map(|(index, _, _)| index)
     }
 }
 
 impl Renderer for Renderer3D {
-    fn setup(&mut self, ui: &mut egui::Ui, world: &World) -> egui::Rect {
+    fn setup(&mut self, ui: &mut egui::Ui, world: &World) -> Rect {
         let (rect, response) =
             ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
         let size = rect.size();
@@ -229,6 +444,7 @@ impl Renderer for Renderer3D {
 
         let painter = painter.with_clip_rect(*viewport);
 
+        self.draw_grid(&painter, viewport);
         self.draw_origin(&painter, viewport);
 
         let mut visible: Vec<_> = world
@@ -242,5 +458,19 @@ impl Renderer for Renderer3D {
         for (_, position, radius, color) in visible {
             painter.circle_filled(position, radius, color);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_coord() {
+        assert_eq!(Renderer3D::format_coord(0.0), "0m");
+        assert_eq!(Renderer3D::format_coord(5.0), "5m");
+        assert_eq!(Renderer3D::format_coord(-10.0), "-10m");
+        assert_eq!(Renderer3D::format_coord(1.5e11), "1.5e11m");
+        assert_eq!(Renderer3D::format_coord(0.001), "1.0e-3m");
     }
 }

@@ -124,11 +124,34 @@ impl Body {
         self.position += dt * self.velocity;
     }
 
-    pub fn in_circular_orbit(&mut self, gravity_constant: f64, star: &Body, distance: f64) {
+    pub fn in_circular_orbit(
+        &mut self,
+        gravity_constant: f64,
+        star: &Body,
+        distance: f64,
+        normal: Vec3,
+    ) {
+        assert!(
+            normal.norm_squared() > f64::EPSILON,
+            "Orbit normal vector cannot be zero"
+        );
+        let n = normal.normalize();
+
+        // Ricaviamo un vettore radiale ortogonale a n.
+        // Se n non è quasi parallelo a Y, usiamo Y come asse di riferimento (in modo che n = (0, 0, 1)
+        // generi la direzione radiale lungo X e la velocità lungo Y, coerente con il piano 2D).
+        let radial_dir = if n.y.abs() < 0.99 {
+            Vec3::y().cross(&n).normalize()
+        } else {
+            n.cross(&Vec3::z()).normalize()
+        };
+        let velocity_dir = n.cross(&radial_dir).normalize();
+
         let v_squared = gravity::orbital_squared_velocity(star.mass(), distance);
         let orbital_v = (gravity_constant * v_squared).sqrt();
-        self.move_to(star.position + Vec3::new(distance, 0.0, 0.0));
-        self.set_velocity(star.velocity + Vec3::new(0.0, orbital_v, 0.0));
+
+        self.move_to(star.position + radial_dir * distance);
+        self.set_velocity(star.velocity + velocity_dir * orbital_v);
     }
 }
 
@@ -537,5 +560,62 @@ mod tests {
         // L = r × p = (0, 0, 30)
 
         assert_abs_diff_eq!(l, Vec3::new(0.0, 0.0, 30.0));
+    }
+
+    #[test]
+    fn test_in_circular_orbit_xy() {
+        let star = BodyBuilder::unitary()
+            .mass(Mass::kg(1.0e30).unwrap())
+            .build();
+        let mut planet = BodyBuilder::unitary().build();
+
+        planet.in_circular_orbit(G, &star, 1.0e9, Vec3::new(0.0, 0.0, 1.0));
+
+        assert_abs_diff_eq!(planet.position().x, 1.0e9, epsilon = 1e-3);
+        assert_abs_diff_eq!(planet.position().y, 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(planet.position().z, 0.0, epsilon = 1e-3);
+
+        let expected_v = (G * 1.0e30 / 1.0e9).sqrt();
+        assert_abs_diff_eq!(planet.velocity().x, 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(planet.velocity().y, expected_v, epsilon = 1e-3);
+        assert_abs_diff_eq!(planet.velocity().z, 0.0, epsilon = 1e-3);
+    }
+
+    #[test]
+    fn test_in_circular_orbit_3d_orthogonality_and_angular_momentum() {
+        let star = BodyBuilder::unitary()
+            .mass(Mass::kg(1.0e30).unwrap())
+            .position(Vec3::new(100.0, -200.0, 300.0))
+            .build();
+        let mut planet = BodyBuilder::unitary()
+            .mass(Mass::kg(1.0e20).unwrap())
+            .build();
+
+        let normal = Vec3::new(1.0, 2.0, 3.0);
+        let distance = 2.5e9;
+
+        planet.in_circular_orbit(G, &star, distance, normal);
+
+        let rel_pos = planet.position() - star.position();
+        let rel_vel = planet.velocity() - star.velocity();
+
+        // 1. Distanza corretta
+        assert_abs_diff_eq!(rel_pos.norm(), distance, epsilon = 1e-3);
+
+        // 2. Velocità orbitale corretta
+        let expected_v = (G * 1.0e30 / distance).sqrt();
+        assert_abs_diff_eq!(rel_vel.norm(), expected_v, epsilon = 1e-3);
+
+        // 3. Posizione e velocità sono perpendicolari
+        assert_abs_diff_eq!(rel_pos.dot(&rel_vel), 0.0, epsilon = 1e-3);
+
+        // 4. Sia posizione che velocità giacciono nel piano perpendicolare a normal
+        let n = normal.normalize();
+        assert_abs_diff_eq!(rel_pos.dot(&n), 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(rel_vel.dot(&n), 0.0, epsilon = 1e-3);
+
+        // 5. Momento angolare orbitale punta nella direzione di normal
+        let l = rel_pos.cross(&rel_vel).normalize();
+        assert_abs_diff_eq!(l, n, epsilon = 1e-6);
     }
 }

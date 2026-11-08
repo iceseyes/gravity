@@ -75,12 +75,20 @@ pub fn orbit<I: Integrator + Send + 'static>(
         .radius(Radius::m(6.37814e6).unwrap())
         .build();
 
-    planet.in_circular_orbit(physics::G, &star, 1.0e9);
+    planet.in_circular_orbit(physics::G, &star, 1.0e9, Vec3::new(0.0, 0.0, 1.0));
 
     world.add_body(star);
     world.add_body(planet);
 
     run(world, 1e-3, 2000000, integrator)
+}
+
+/// Calcola il vettore normale del piano orbitale a partire dall'inclinazione (in gradi)
+/// e dalla longitudine del nodo ascendente (in gradi) rispetto al piano di riferimento (X-Y).
+fn orbital_normal(inclination_deg: f64, node_deg: f64) -> Vec3 {
+    let i = inclination_deg.to_radians();
+    let omega = node_deg.to_radians();
+    Vec3::new(i.sin() * omega.sin(), -i.sin() * omega.cos(), i.cos())
 }
 
 pub fn sol<I: Integrator + Send + 'static>(
@@ -138,15 +146,16 @@ pub fn sol<I: Integrator + Send + 'static>(
         .radius(Radius::m(1.137e6).unwrap())
         .build();
 
-    mercury.in_circular_orbit(physics::G, &sol, 5.791e10);
-    venus.in_circular_orbit(physics::G, &sol, 1.082e11);
-    earth.in_circular_orbit(physics::G, &sol, 1.496e11);
-    mars.in_circular_orbit(physics::G, &sol, 2.279e11);
-    jupiter.in_circular_orbit(physics::G, &sol, 7.783e11);
-    saturn.in_circular_orbit(physics::G, &sol, 1.4336e12);
-    uranus.in_circular_orbit(physics::G, &sol, 2.8710e12);
-    neptune.in_circular_orbit(physics::G, &sol, 4.4954e12);
-    pluto.in_circular_orbit(physics::G, &sol, 5.982e12);
+    // Inclinazioni reali e longitudini del nodo ascendente dei pianeti del sistema solare
+    mercury.in_circular_orbit(physics::G, &sol, 5.791e10, orbital_normal(7.00, 48.33));
+    venus.in_circular_orbit(physics::G, &sol, 1.082e11, orbital_normal(3.39, 76.68));
+    earth.in_circular_orbit(physics::G, &sol, 1.496e11, orbital_normal(0.00, 0.00));
+    mars.in_circular_orbit(physics::G, &sol, 2.279e11, orbital_normal(1.85, 49.56));
+    jupiter.in_circular_orbit(physics::G, &sol, 7.783e11, orbital_normal(1.30, 100.46));
+    saturn.in_circular_orbit(physics::G, &sol, 1.4336e12, orbital_normal(2.49, 113.67));
+    uranus.in_circular_orbit(physics::G, &sol, 2.8710e12, orbital_normal(0.77, 74.01));
+    neptune.in_circular_orbit(physics::G, &sol, 4.4954e12, orbital_normal(1.77, 131.78));
+    pluto.in_circular_orbit(physics::G, &sol, 5.982e12, orbital_normal(17.16, 110.30));
 
     world.add_body(sol);
     world.add_body(mercury);

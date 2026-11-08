@@ -1,7 +1,7 @@
-use nalgebra::{Matrix4, Translation3, UnitQuaternion, Vector2, Vector3, Vector4};
+use gravity::math::Vec3;
+use nalgebra::{Matrix4, Translation3, UnitQuaternion, Vector2, Vector4};
 use std::f64::consts::PI;
 
-type Vec3 = Vector3<f64>;
 type Rotation3 = UnitQuaternion<f64>;
 
 pub struct Camera3DBuilder {
@@ -159,6 +159,75 @@ impl Camera3D {
             (1.0 - ndc_y) * 0.5 * height,
         ))
     }
+
+    /// Clips a world-space 3D line segment to the camera view frustum and projects it to viewport pixel coordinates.
+    ///
+    /// Returns None if the line segment is completely outside the frustum.
+    pub fn project_line_segment(
+        &self,
+        start: &Vec3,
+        end: &Vec3,
+        width: f64,
+        height: f64,
+    ) -> Option<(Vector2<f64>, Vector2<f64>)> {
+        if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+            return None;
+        }
+
+        let view = self.view_matrix();
+        let p0_4 = view * Vector4::new(start.x, start.y, start.z, 1.0);
+        let p1_4 = view * Vector4::new(end.x, end.y, end.z, 1.0);
+        let p0 = Vec3::new(p0_4.x, p0_4.y, p0_4.z);
+        let p1 = Vec3::new(p1_4.x, p1_4.y, p1_4.z);
+
+        let tan_y = (self.fov_y * 0.5).tan();
+        let tan_x = tan_y * (width / height);
+
+        let mut t_enter = 0.0_f64;
+        let mut t_leave = 1.0_f64;
+        let delta = p1 - p0;
+
+        let planes: [(f64, f64, f64, f64); 6] = [
+            (0.0, 0.0, -1.0, -self.near), // Near: -z >= near
+            (0.0, 0.0, 1.0, self.far),    // Far: -z <= far
+            (1.0, 0.0, -tan_x, 0.0),      // Left: x - z*tan_x >= 0
+            (-1.0, 0.0, -tan_x, 0.0),     // Right: -x - z*tan_x >= 0
+            (0.0, 1.0, -tan_y, 0.0),      // Bottom: y - z*tan_y >= 0
+            (0.0, -1.0, -tan_y, 0.0),     // Top: -y - z*tan_y >= 0
+        ];
+
+        for &(a, b, c, d) in &planes {
+            let v0 = a * p0.x + b * p0.y + c * p0.z + d;
+            let v1 = a * p1.x + b * p1.y + c * p1.z + d;
+
+            if v0 < 0.0 && v1 < 0.0 {
+                return None;
+            }
+            if v0 < 0.0 || v1 < 0.0 {
+                let t = (v0 / (v0 - v1)).clamp(0.0, 1.0);
+                if v0 < v1 {
+                    t_enter = t_enter.max(t);
+                } else {
+                    t_leave = t_leave.min(t);
+                }
+                if t_enter > t_leave {
+                    return None;
+                }
+            }
+        }
+
+        let p0_clipped = p0 + delta * t_enter;
+        let p1_clipped = p0 + delta * t_leave;
+
+        let to_screen = |p: &Vec3| -> Vector2<f64> {
+            let depth = -p.z;
+            let ndc_x = (p.x / (depth * tan_x)).clamp(-1.0, 1.0);
+            let ndc_y = (p.y / (depth * tan_y)).clamp(-1.0, 1.0);
+            Vector2::new((ndc_x + 1.0) * 0.5 * width, (1.0 - ndc_y) * 0.5 * height)
+        };
+
+        Some((to_screen(&p0_clipped), to_screen(&p1_clipped)))
+    }
 }
 
 #[cfg(test)]
@@ -214,5 +283,69 @@ mod tests {
 
         assert_abs_diff_eq!(screen.x, 400.0, epsilon = 1e-10);
         assert_abs_diff_eq!(screen.y, 400.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_project_line_segment_clipped_x() {
+        let camera = Camera3DBuilder::new(Vec3::zeros(), Vec3::new(0.0, 0.0, -1.0))
+            .viewport_size(800.0, 800.0)
+            .clipping_planes(0.1, 100.0)
+            .build();
+
+        // Line parallel to X spanning well outside viewport
+        let (p0, p1) = camera
+            .project_line_segment(
+                &Vec3::new(-100.0, 0.0, -5.0),
+                &Vec3::new(100.0, 0.0, -5.0),
+                800.0,
+                800.0,
+            )
+            .unwrap();
+
+        assert_abs_diff_eq!(p0.x, 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(p0.y, 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(p1.x, 800.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(p1.y, 400.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_project_line_segment_behind_camera() {
+        let camera = Camera3DBuilder::new(Vec3::zeros(), Vec3::new(0.0, 0.0, -1.0))
+            .viewport_size(800.0, 800.0)
+            .clipping_planes(0.1, 100.0)
+            .build();
+
+        // Line is completely behind camera (z > 0 in camera space)
+        let res = camera.project_line_segment(
+            &Vec3::new(-10.0, 0.0, 5.0),
+            &Vec3::new(10.0, 0.0, 5.0),
+            800.0,
+            800.0,
+        );
+
+        assert!(res.is_none());
+    }
+
+    #[test]
+    fn test_project_line_segment_crossing_near_plane() {
+        let camera = Camera3DBuilder::new(Vec3::zeros(), Vec3::new(0.0, 0.0, -1.0))
+            .viewport_size(800.0, 800.0)
+            .clipping_planes(1.0, 100.0)
+            .build();
+
+        // Line from behind camera to in front along view axis
+        let (p0, p1) = camera
+            .project_line_segment(
+                &Vec3::new(0.0, 0.0, 5.0),
+                &Vec3::new(0.0, 0.0, -5.0),
+                800.0,
+                800.0,
+            )
+            .unwrap();
+
+        assert_abs_diff_eq!(p0.x, 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(p0.y, 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(p1.x, 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(p1.y, 400.0, epsilon = 1e-10);
     }
 }

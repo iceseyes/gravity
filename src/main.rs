@@ -11,8 +11,8 @@ use ui::app::GravityApp;
 
 fn main() -> anyhow::Result<()> {
     let native_options = eframe::NativeOptions::default();
-    //let (simulator, handle, snapshot) = simulator::random(1000);
-    //let (simulator, handle, snapshot) = simulator::orbit();
+    //let (simulator, handle, snapshot) = simulator::random(VelocityVerlet, 1000);
+    //let (simulator, handle, snapshot) = simulator::orbit(VelocityVerlet);
     let (simulator, handle, snapshot) = simulator::sol(VelocityVerlet);
 
     let ris = eframe::run_native(

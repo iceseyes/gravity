@@ -64,7 +64,7 @@ mod tests {
         let mut planet =
             BodyBuilder::new(Mass::kg(1e20).unwrap(), Radius::m(1.0e3).unwrap()).build();
 
-        planet.in_circular_orbit(G, &star, orbital_radius);
+        planet.in_circular_orbit(G, &star, orbital_radius, Vec3::new(0.0, 0.0, 1.0));
 
         let mut world = World::default();
         world.add_body(star);
